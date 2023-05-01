@@ -16,6 +16,13 @@ struct Var_bt
     size_t pointer;
 };
 
+struct Op_bt  // operator type
+{
+    Type type;
+    int num;
+    Var_bt* var;
+};
+
 struct OpCode_bt
 {
     unsigned int operation:5;
@@ -27,9 +34,9 @@ struct OpCode_bt
 struct Cmd_bt
 {
     OpCode_bt opCode;
-    Var_bt    operator1;
-    Var_bt    operator2;
-    Var_bt    dest;
+    Op_bt*   operator1;
+    Op_bt*   operator2;
+    Var_bt*   dest;
 };
 
 struct Func_bt
@@ -53,3 +60,4 @@ struct BinaryTranslator
 void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator);
 
 //----------------------------------------------------------------------------
+

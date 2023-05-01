@@ -53,25 +53,6 @@ void dumpIR (const char* fileName, const BinaryTranslator* binTranslator)
     }
 }
 
-static Func_bt* initFunction (size_t numOfVars, size_t numOfCmd)
-{
-    Func_bt* function = (Func_bt*) calloc (1, sizeof (*function));
-    assert (function != NULL);
-
-    Var_bt* varArray = (Var_bt*) calloc (1, sizeof (*varArray));
-    assert (varArray != NULL);
-    varArray[0] = {};
-
-    Cmd_bt* cmdArray = (Cmd_bt*) calloc (1, sizeof (*cmdArray));
-    assert (cmdArray != NULL);
-    cmdArray[0] = {};
-
-    function->varArray = NULL;
-    function->cmdArray = NULL;
-    function->name     = NULL;
-
-    return function;
-}
 static size_t countNumberOfCmdInFunc (Node* node, size_t numOfCmd)
 {
     assert (node != NULL);
@@ -109,7 +90,7 @@ static size_t countNumberOfVarsInFunc (Node* node, size_t numOfVars)
     return numOfVars;
 }
 
-static void addVar (Var_bt* varArray, char* name, Location location, size_t pointer)
+static Var_bt* addVar (Var_bt* varArray, char* name, Location location, size_t pointer)
 {
     assert (varArray != NULL);
     assert (name     != NULL);
@@ -122,6 +103,85 @@ static void addVar (Var_bt* varArray, char* name, Location location, size_t poin
     varArray[i].pointer = pointer;
 
     varArray[i + 1] = {};
+    return &varArray[i];
+}
+
+static Var_bt* findVar (Var_bt* varArray, char* name)
+{
+    for (int i = 0; varArray[i].name != NULL; i++)
+    {
+        if (strcmp (varArray[i].name, name) == 0)
+            return &varArray[i];
+    }
+    return NULL;
+}
+
+static Var_bt* addTempVar (Var_bt* varArray)
+{
+    static int NumberOfTempVars = 0;
+    char* tempVarName = (char*) calloc (15, sizeof (char));
+    sprintf(tempVarName, "temp%d", NumberOfTempVars);
+    NumberOfTempVars += 1;
+
+    return addVar(varArray, tempVarName, Stack, 0);
+};
+
+static Var_bt* parseVarToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
+{
+    assert (node          != NULL);
+    assert (binTranslator != NULL);
+    assert (function      != NULL);
+
+    Var_bt* var = findVar(function->varArray, node->var.varName);
+
+    if (var == NULL)
+        return addVar(function->varArray, node->var.varName, Stack, 0);
+
+    return var;
+}
+
+static Op_bt* createOpBt (Type type, Var_bt* varPointer, int num)
+{
+    Op_bt* opPointer = (Op_bt*) calloc (1, sizeof (*opPointer));
+
+    opPointer->type = type;
+    opPointer->var  = varPointer;
+    opPointer->num  = num;
+
+    return opPointer;
+}
+#define NumOP(num) createOpBt (Num_t, NULL, num);
+
+static Cmd_bt* addCmd (Cmd_bt* cmdArray, OpCode_bt opCode, Op_bt* op1, Op_bt* op2, Var_bt* dest)
+{
+    assert (cmdArray != NULL);
+
+    int i = 0;
+    for (; cmdArray[i].opCode.operation != 0; i++) {};
+
+    cmdArray[i] = {opCode, op1, op2, dest};
+
+    return &cmdArray[i];
+}
+
+static Func_bt* initFunction (size_t numOfVars, size_t numOfCmd)
+{
+    Func_bt* function = (Func_bt*) calloc (1, sizeof (*function));
+    assert (function != NULL);
+
+    Var_bt* varArray = (Var_bt*) calloc (numOfVars, sizeof (*varArray));
+    assert (varArray != NULL);
+    varArray[0] = {};
+
+    Cmd_bt* cmdArray = (Cmd_bt*) calloc (numOfCmd, sizeof (*cmdArray));
+    assert (cmdArray != NULL);
+    cmdArray[0] = {};
+
+    function->varArray = NULL;
+    function->cmdArray = NULL;
+    function->name     = NULL;
+
+    return function;
 }
 
 static void parseFuncParams (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
@@ -152,6 +212,103 @@ static void parseFuncHead (Node* node, BinaryTranslator* binTranslator, Func_bt*
     {
         parseFuncParams (node->left, binTranslator, function);
     }
+}
+#define CMD(opCode) addCmd(function->cmdArray,  {(unsigned int) opCode, 0, 0, 0}, \
+        parseExpToIR(node->left, binTranslator, function),                        \
+        parseExpToIR(node->right, binTranslator, function),                       \
+        tempVar);
+static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
+{
+    assert (node          != NULL);
+    assert (binTranslator != NULL);
+    assert (function      != NULL);
+
+    switch (node->type)
+    {
+        case OP_t:
+        {
+            Var_bt* tempVar = addTempVar (function->varArray);
+            switch (node->opValue)
+            {
+                case OP_ADD:
+                    CMD(OP_ADD);
+                    return createOpBt(Var_t, tempVar, 0);
+                    break;
+
+                case OP_SUB:
+                    CMD(OP_SUB);
+                    return createOpBt(Var_t, tempVar, 0);
+                    break;
+
+                case OP_MUL:
+                    CMD(OP_MUL);
+                    return createOpBt(Var_t, tempVar, 0);
+                    break;
+
+                case OP_DIV:
+                    CMD(OP_DIV);
+                    return createOpBt(Var_t, tempVar, 0);
+                    break;
+
+                default:
+                    assert (0);
+            }
+            break;
+        }
+
+        case Var_t:
+            return createOpBt(Var_t, parseVarToIR(node, binTranslator, function), 0);
+            break;
+
+        case Num_t:
+            return NumOP(node->numValue);
+            break;
+    }
+}
+
+static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
+{
+    assert (node          != NULL);
+    assert (binTranslator != NULL);
+    assert (function      != NULL);
+
+     if (node->left)
+     {
+         switch (node->left->type)
+         {
+            case OP_t:
+                parseExpToIR (node->left, binTranslator, function);
+                break;
+
+            case Var_t:
+                parseExpToIR (node->left, binTranslator, function);
+                break;
+
+            case Num_t:
+                parseExpToIR (node->left, binTranslator, function);
+                break;
+
+            case Key_t:
+                if (strcmp (node->left->Name, "ST") == 0)
+                    parseStToIR (node->left, binTranslator, function);
+
+                else if (strcmp (node->left->Name, "RET") == 0)
+                    parseStToIR (node->left, binTranslator, function);
+
+                break;
+
+            case Unknown:
+                fprintf (stderr, "Writer unknown %s\n", node->Name);
+                assert (0);
+                break;
+
+            default:
+                assert (0);
+         }
+     }
+
+     if (node->right)
+         parseStToIR(node->right, binTranslator, function);
 }
 
 void parseFuncToIR (Node* node, BinaryTranslator* binTranslator)
