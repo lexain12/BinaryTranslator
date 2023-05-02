@@ -7,10 +7,11 @@
 #include "language/common.h"
 #include "./language/readerLib/functions.h"
 
-const char* OpArray[] = {"NoOP", "HLT"};
+extern const char* FullOpArray[];
 
 static void dumpIRFuncion (FILE* fileptr, const Func_bt function)
 {
+    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert (fileptr != NULL);
     assert (function.name != NULL);
 
@@ -26,7 +27,20 @@ static void dumpIRFuncion (FILE* fileptr, const Func_bt function)
     fprintf (fileptr, "cmd:\n{\n");
     for (int i = 0; function.cmdArray[i].opCode.operation != 0; i++)
     {
-        fprintf (fileptr, "%s\n", OpArray[function.cmdArray[i].opCode.operation]);
+        fprintf (fileptr, "%s ", FullOpArray[function.cmdArray[i].opCode.operation]);
+        if (function.cmdArray[i].operator1->var)
+            fprintf(fileptr, " %s", function.cmdArray[i].operator1->var->name);
+        else
+            fprintf(fileptr, " %d",function.cmdArray[i].operator1->num);
+
+        if (function.cmdArray[i].operator2->var)
+            fprintf(fileptr, " %s", function.cmdArray[i].operator2->var->name);
+        else
+            fprintf(fileptr, " %d",function.cmdArray[i].operator2->num);
+
+        if (function.cmdArray[i].dest->name)
+            fprintf(fileptr, " %s\n", function.cmdArray[i].dest->name);
+
     }
     fprintf(fileptr, "}\n");
 
@@ -34,18 +48,21 @@ static void dumpIRFuncion (FILE* fileptr, const Func_bt function)
 
 void dumpIR (const char* fileName, const BinaryTranslator* binTranslator)
 {
+    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert (fileName      != NULL);
     assert (binTranslator != NULL);
 
     FILE* fileptr = fopen (fileName, "w");
     assert (fileptr != NULL);
 
-    fprintf (fileptr, "Variables:\n");
-    for (int i = 0; binTranslator->globalVars[i].name != NULL; i++)
+    if (binTranslator->globalVars != NULL)
     {
-        fprintf (fileptr, "%s\n", binTranslator->globalVars[i].name);
+        fprintf (fileptr, "Variables:\n");
+        for (int i = 0; binTranslator->globalVars[i].name != NULL; i++)
+        {
+            fprintf (fileptr, "%s\n", binTranslator->globalVars[i].name);
+        }
     }
-
     fprintf (fileptr, "Functions:\n");
     for (int i = 0; binTranslator->funcArray[i].name != NULL; i++)
     {
@@ -55,6 +72,7 @@ void dumpIR (const char* fileName, const BinaryTranslator* binTranslator)
 
 static size_t countNumberOfCmdInFunc (Node* node, size_t numOfCmd)
 {
+    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert (node != NULL);
 
     if (node->type == OP_t)
@@ -177,8 +195,8 @@ static Func_bt* initFunction (size_t numOfVars, size_t numOfCmd)
     assert (cmdArray != NULL);
     cmdArray[0] = {};
 
-    function->varArray = NULL;
-    function->cmdArray = NULL;
+    function->varArray = varArray;
+    function->cmdArray = cmdArray;
     function->name     = NULL;
 
     return function;
@@ -201,6 +219,7 @@ static void parseFuncParams (Node* node, BinaryTranslator* binTranslator, Func_b
 
 static void parseFuncHead (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
+    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert(node != NULL);
 
     if (node->type == Func_t)
@@ -213,10 +232,13 @@ static void parseFuncHead (Node* node, BinaryTranslator* binTranslator, Func_bt*
         parseFuncParams (node->left, binTranslator, function);
     }
 }
-#define CMD(opCode) addCmd(function->cmdArray,  {(unsigned int) opCode, 0, 0, 0}, \
+#define CMD2op(opCode) addCmd(function->cmdArray,  {(unsigned int) opCode, 0, 0, 0}, \
         parseExpToIR(node->left, binTranslator, function),                        \
         parseExpToIR(node->right, binTranslator, function),                       \
         tempVar);
+#define CMD1op(opCode, direction) addCmd (function->cmdArray, {(unsigned int) opCode, 0, 0, 0}, \
+        parseExpToIR (direction, binTranslator, function), NULL, tempVar);
+
 static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
     assert (node          != NULL);
@@ -227,28 +249,34 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
     {
         case OP_t:
         {
+            printf ("asdffffffffffffffffddddddddddddd %d\n", node->opValue);
             Var_bt* tempVar = addTempVar (function->varArray);
             switch (node->opValue)
             {
                 case OP_ADD:
-                    CMD(OP_ADD);
+                    CMD2op(OP_ADD);
                     return createOpBt(Var_t, tempVar, 0);
                     break;
 
                 case OP_SUB:
-                    CMD(OP_SUB);
+                    CMD2op(OP_SUB);
                     return createOpBt(Var_t, tempVar, 0);
                     break;
 
                 case OP_MUL:
-                    CMD(OP_MUL);
+                    CMD2op(OP_MUL);
                     return createOpBt(Var_t, tempVar, 0);
                     break;
 
                 case OP_DIV:
-                    CMD(OP_DIV);
+                    CMD2op(OP_DIV);
                     return createOpBt(Var_t, tempVar, 0);
                     break;
+
+                case OP_EQ:
+                    addCmd (function->cmdArray, {(unsigned int) OP_EQ, 0, 0, 0},
+                        parseExpToIR (node->right, binTranslator, function), NULL, parseExpToIR(node->left, binTranslator, function));
+
 
                 default:
                     assert (0);
@@ -265,6 +293,7 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
             break;
     }
 }
+#undef CMD
 
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
@@ -313,6 +342,7 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
 
 void parseFuncToIR (Node* node, BinaryTranslator* binTranslator)
 {
+
     assert (node != nullptr);
     Func_bt* function = initFunction(countNumberOfVarsInFunc(node, 0) + 1, countNumberOfCmdInFunc(node, 0) + 1); // +1 for NULL element
 
@@ -327,6 +357,24 @@ void parseFuncToIR (Node* node, BinaryTranslator* binTranslator)
         parseStToIR   (node->right, binTranslator, function);
     else
         assert(0);
+
+    binTranslator->funcArray[0] = *function;
+}
+
+static size_t countNumberOfFunc (Node* node, size_t numOfFunc)
+{
+    assert (node != NULL);
+
+    if (node->type == Func_t)
+        numOfFunc+= 1;
+
+    if (node->left)
+        numOfFunc += countNumberOfCmdInFunc(node->left, numOfFunc);
+
+    if (node->right)
+        numOfFunc += countNumberOfCmdInFunc(node->right, numOfFunc);
+
+    return numOfFunc;
 }
 
 void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
@@ -338,4 +386,10 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
     assert (fileptr != NULL);
     Node* tree = getTreeFromStandart(fileName);
 
+    treeDump(tree, "HEYY\n");
+
+    binTranslator->funcArray = (Func_bt*) calloc (countNumberOfFunc(tree, 0) + 1, sizeof (Func_bt));
+
+    parseFuncToIR(tree->left, binTranslator);
+    dumpIR("Dump.txt", binTranslator);
 }

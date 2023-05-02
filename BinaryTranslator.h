@@ -2,6 +2,13 @@
 
 #include "./language/common.h"
 
+enum BT_OP
+{
+    OP_IF  = 22,
+    OP_RET = 23,
+    OP_VAR = 24,
+};
+
 enum Location
 {
     Register = 1,
@@ -25,7 +32,7 @@ struct Op_bt  // operator type
 
 struct OpCode_bt
 {
-    unsigned int operation:5;
+    unsigned int operation:6;
     unsigned int imm:1;
     unsigned int reg:1;
     unsigned int mem:1;
@@ -58,6 +65,7 @@ struct BinaryTranslator
 //----------------------------------------------------------------------------
 
 void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator);
+void dumpIR (const char* fileName, const BinaryTranslator* binTranslator);
 
 //----------------------------------------------------------------------------
 
