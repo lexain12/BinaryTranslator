@@ -2,13 +2,6 @@
 
 #include "./language/common.h"
 
-enum BT_OP
-{
-    OP_IF  = 22,
-    OP_RET = 23,
-    OP_VAR = 24,
-};
-
 enum Location
 {
     Register = 1,
@@ -43,14 +36,17 @@ struct Cmd_bt
     OpCode_bt opCode;
     Op_bt*   operator1;
     Op_bt*   operator2;
-    Var_bt*   dest;
+    Op_bt*   dest;
+    char*    name;
 };
 
 struct Func_bt
 {
-    Var_bt* varArray;
     char*  name;
+    Var_bt* varArray;
     Cmd_bt* cmdArray;
+    int varArraySize;
+    int cmdArraySize;
 };
 
 // Elements with nullptr in name are needed in the end of array
