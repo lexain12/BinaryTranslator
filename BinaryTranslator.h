@@ -2,25 +2,14 @@
 
 #include "./language/common.h"
 
+struct Block_bt;
+struct Op_bt;  // operator type
+
 enum Location
 {
     Register = 1,
     Memory   = 2,
     Stack    = 3,
-};
-
-struct Var_bt
-{
-    char* name;
-    Location location;
-    size_t pointer;
-};
-
-struct Op_bt  // operator type
-{
-    Type type;
-    int num;
-    Var_bt* var;
 };
 
 struct OpCode_bt
@@ -31,22 +20,50 @@ struct OpCode_bt
     unsigned int mem:1;
 };
 
+struct Var_bt
+{
+    char* name;
+    Location location;
+    size_t pointer;
+};
+
 struct Cmd_bt
 {
     OpCode_bt opCode;
     Op_bt*   operator1;
     Op_bt*   operator2;
     Op_bt*   dest;
-    char*    name;
+};
+
+struct Block_bt
+{
+    Cmd_bt* cmdArray;
+    int     cmdArraySize;
+    int     cmdArrayCapacity;
+};
+
+union Value_bt
+{
+    int num;
+    Var_bt* var;
+    Block_bt* block;
+};
+
+struct Op_bt  // operator type
+{
+    Type type;
+    Value_bt value;
 };
 
 struct Func_bt
 {
-    char*  name;
+    char    name[15];
     Var_bt* varArray;
-    Cmd_bt* cmdArray;
+    Block_bt* blockArray;
     int varArraySize;
-    int cmdArraySize;
+    int varArrayCapacity;
+    int blockArraySize;
+    int blockArrayCapacity;
 };
 
 // Elements with nullptr in name are needed in the end of array
