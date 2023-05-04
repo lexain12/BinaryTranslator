@@ -143,6 +143,8 @@ static size_t countNumberOfBlocks (Node* node, size_t numOfBlocks)
     {
         if (strcmp ("IF", node->Name) == 0)
             numOfBlocks += 2;
+        if (strcmp("ELSE", node->Name) == 0)
+            numOfBlocks += 1;
     }
 
     if (node->left)
@@ -293,10 +295,20 @@ static Cmd_bt* addCmd (Block_bt* block, OpCode_bt opCode, Op_bt* op1, Op_bt* op2
 
     return &(block->cmdArray[block->cmdArraySize - 1]);
 }
-char name[15] = "";
 
 static Block_bt* addBlock (Func_bt* function, int numOfCmd, char* name)
 {
+    assert (function != NULL);
+    assert (name     != NULL);
+
+    if (function->blockArraySize >= function->blockArrayCapacity)
+    {
+        Block_bt* blockArray = (Block_bt*) calloc (function->blockArrayCapacity * 2, sizeof(*blockArray));
+        assert (blockArray != NULL);
+        function->varArrayCapacity *= 2;
+        function->blockArray = blockArray;
+    }
+
     Cmd_bt* cmdArray = (Cmd_bt*) calloc (numOfCmd, sizeof(*cmdArray));
     assert (cmdArray != NULL);
 
@@ -460,30 +472,45 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
 static void parseIfToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
     static int numberOfIf = 0;
-    Op_bt* condition = parseExpToIR(node->left, binTranslator, function);
     char buf[15] = "";
-    sprintf(buf, "IF%d", numberOfIf);
+    Block_bt* ifBlock    = NULL;
+    Block_bt* elseBlock  = NULL;
+    Block_bt* elderBlock = &function->blockArray[function->blockArraySize - 1];
 
+    Op_bt* condition = parseExpToIR(node->left, binTranslator, function);
+
+    sprintf(buf, "IF%d", numberOfIf);
     if (node->right)
     {
         if (strcmp (node->right->Name, "ELSE") == 0)
         {
-            addBlock (function, countNumberOfCmdInFunc (node->right, 0), buf);
+            ifBlock = addBlock (function, countNumberOfCmdInFunc (node->right, 0), buf);
             parseStToIR (node->right->left, binTranslator, function);
 
             sprintf(buf, "ELSE%d", numberOfIf);
 
-            addBlock(function,  countNumberOfCmdInFunc (node->right, 0), buf);
+            elseBlock = addBlock(function,  countNumberOfCmdInFunc (node->right, 0), buf);
             parseStToIR (node->right->right, binTranslator, function);
         }
         else
         {
-            addBlock (function, countNumberOfCmdInFunc (node->right, 0), buf);
+            ifBlock = addBlock (function, countNumberOfCmdInFunc (node->right, 0), buf);
             parseStToIR (node->right, binTranslator, function);
         }
 
         sprintf(buf, "MERGE%d", numberOfIf);
-        addBlock(function, 20, buf);
+        Block_bt* mergeBlock = addBlock(function, 20, buf);
+
+        addCmd (ifBlock, {OP_JMP, 0, 0, 0}, createOpBt(Pointer_t, {.block = mergeBlock}), NULL, NULL);
+
+        if (elseBlock != NULL)
+        {
+            addCmd (elseBlock, {OP_JMP, 0, 0, 0}, createOpBt(Pointer_t, {.block = mergeBlock}), NULL, NULL);
+            addCmd (elderBlock, {OP_IF, 0, 0, 0}, createOpBt(Pointer_t, {.block = ifBlock}), createOpBt(Pointer_t, {.block = elseBlock}), condition);
+        }
+        else
+            addCmd (elderBlock, {OP_IF, 0, 0, 0}, createOpBt(Pointer_t, {.block = ifBlock}), createOpBt(Pointer_t, {.block = mergeBlock}), condition);
+
         numberOfIf += 1;
     }
 
