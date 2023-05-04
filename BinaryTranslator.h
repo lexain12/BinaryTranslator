@@ -37,6 +37,7 @@ struct Cmd_bt
 
 struct Block_bt
 {
+    char name[15];
     Cmd_bt* cmdArray;
     int     cmdArraySize;
     int     cmdArrayCapacity;
@@ -70,6 +71,7 @@ struct Func_bt
 struct BinaryTranslator
 {
     Func_bt* funcArray;
+    int      funcArraySize;
     Var_bt*  globalVars;
     size_t   BT_ip;
     Func_bt* x86_array;

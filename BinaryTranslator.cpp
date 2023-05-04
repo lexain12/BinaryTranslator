@@ -13,11 +13,74 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
 
 // DUMPS
 //----------------------------------------
+
+static void printOperand (FILE* fileptr, const Op_bt* op)
+{
+    fprintf (stderr, "HERE\n");
+    assert (op != NULL);
+    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
+    fprintf (stderr, "%ul\n", op->type);
+    fprintf (stderr, "HERE\n");
+
+    switch (op->type)
+    {
+        case Num_t:
+            fprintf(fileptr, "%-10d", op->value.num);
+            break;
+
+        case Var_t:
+            fprintf(fileptr, "%-10s", op->value.var->name);
+            break;
+
+        case Pointer_t:
+            fprintf(fileptr, "%-10s", op->value.block->name);
+            break;
+    }
+}
+
+static void dumpIRBlock (FILE* fileptr, const Block_bt block)
+{
+    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
+
+    fprintf (fileptr, "cmdArrayCapacity = %d, cmdArraySize = %d\n", block.cmdArrayCapacity, block.cmdArraySize);
+    fprintf (fileptr, "%12s: CMD        op1        op2        dest\n\t{\n", block.name);
+    for (int i = 0; i < block.cmdArraySize; i++)
+    {
+        fprintf (fileptr, "\t\t\t\t  %-10s ", FullOpArray[block.cmdArray[i].opCode.operation]);
+
+        if (block.cmdArray[i].operator1)
+        {
+            printOperand(fileptr, block.cmdArray[i].operator1);
+            fprintf (fileptr, " ");
+        }
+        else
+            fprintf(fileptr, "%11c", ' ');
+
+        if (block.cmdArray[i].operator2)
+        {
+            printOperand(fileptr, block.cmdArray[i].operator2);
+            fprintf (fileptr, " ");
+        }
+        else
+            fprintf(fileptr, "%11c", ' ');
+        if (block.cmdArray[i].dest)
+        {
+            printOperand(fileptr, block.cmdArray[i].dest);
+            fprintf (fileptr, " ");
+        }
+        else
+            fprintf(fileptr, "%11c", ' ');
+        fprintf(fileptr, "\n");
+
+    }
+    fprintf(fileptr, "\t}\n\n");
+}
+
 static void dumpIRFuncion (FILE* fileptr, const Func_bt function)
 {
     fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert (fileptr != NULL);
-    assert (function.cmdArray != NULL);
+    assert (function.blockArray != NULL);
     assert (function.varArray != NULL);
     assert (function.name != NULL);
 
@@ -26,36 +89,18 @@ static void dumpIRFuncion (FILE* fileptr, const Func_bt function)
     fprintf (fileptr, "Variables:\n{\n");
     for (int i = 0; function.varArray[i].name != NULL; i++)
     {
-        fprintf(fileptr, "%s\n", function.varArray[i].name);
+        fprintf(fileptr, "\t%s\n", function.varArray[i].name);
     }
     fprintf (fileptr, "}\n");
 
-    fprintf (fileptr, "cmd:\n{\n");
-    for (int i = 0; function.cmdArray[i].opCode.operation != 0; i++)
+    fprintf (fileptr, "blockArraySize = %d, blockArrayCapacity = %d\n", function.blockArraySize, function.blockArrayCapacity);
+    fprintf (fileptr, "blocks: \n{\n");
+    for (int i = 0; i < function.blockArraySize; i++)
     {
-        fprintf (fileptr, "%s ", FullOpArray[function.cmdArray[i].opCode.operation]);
-        if (function.cmdArray[i].operator1->var)
-        {
-            if (function.cmdArray[i].dest->var->name)
-                fprintf(fileptr, " %s", function.cmdArray[i].operator1->var->name);
-        }
-        else
-            fprintf(fileptr, " %d",function.cmdArray[i].operator1->num);
-
-        if (function.cmdArray[i].operator2->var)
-        {
-            if (function.cmdArray[i].dest->var->name)
-                fprintf(fileptr, " %s", function.cmdArray[i].operator2->var->name);
-        }
-        else
-            fprintf(fileptr, " %d",function.cmdArray[i].operator2->num);
-
-        if (function.cmdArray[i].dest->var)
-            if (function.cmdArray[i].dest->var->name)
-                fprintf(fileptr, " %s\n", function.cmdArray[i].dest->var->name);
-
+        fprintf (fileptr, "\t");
+        dumpIRBlock(fileptr, function.blockArray[i]);
     }
-    fprintf(fileptr, "}\n");
+    fprintf(fileptr, "}\n\n");
 
 }
 
@@ -77,10 +122,13 @@ void dumpIR (const char* fileName, const BinaryTranslator* binTranslator)
             fprintf (fileptr, "%s\n", binTranslator->globalVars[i].name);
         }
     }
+    fprintf(fileptr, "funcArraySize = %d\n", binTranslator->funcArraySize);
     fprintf (fileptr, "Functions:\n");
-    for (int i = 0; binTranslator->funcArray[i].name != NULL; i++)
+    for (int i = 0; i < binTranslator->funcArraySize; i++)
     {
+        fprintf (fileptr, "--------------------------------------------------------------------------------\n");
         dumpIRFuncion(fileptr, binTranslator->funcArray[i]);
+        fprintf (fileptr, "--------------------------------------------------------------------------------\n");
     }
 }
 //----------------------------------------
@@ -227,7 +275,7 @@ static Op_bt* createOpBt (Type type, Value_bt value)
 
     return opPointer;
 }
-#define NumOP(num) createOpBt (Num_t, NULL, num);
+#define NumOP(num) createOpBt (Num_t, num);
 
 static Cmd_bt* addCmd (Block_bt* block, OpCode_bt opCode, Op_bt* op1, Op_bt* op2, Op_bt* dest)
 {
@@ -245,13 +293,15 @@ static Cmd_bt* addCmd (Block_bt* block, OpCode_bt opCode, Op_bt* op1, Op_bt* op2
 
     return &(block->cmdArray[block->cmdArraySize - 1]);
 }
+char name[15] = "";
 
-static Block_bt* addBlock (Func_bt* function, int numOfCmd)
+static Block_bt* addBlock (Func_bt* function, int numOfCmd, char* name)
 {
     Cmd_bt* cmdArray = (Cmd_bt*) calloc (numOfCmd, sizeof(*cmdArray));
     assert (cmdArray != NULL);
 
-    function->blockArray[function->blockArraySize] = {cmdArray, 0, numOfCmd};
+    function->blockArray[function->blockArraySize] = {"\0", cmdArray, 0, numOfCmd};
+    strcpy (function->blockArray[function->blockArraySize].name, name);
     function->blockArraySize += 1;
 
     return &function->blockArray[function->blockArraySize - 1];
@@ -318,12 +368,12 @@ void parseFuncToIR (Node* node, BinaryTranslator* binTranslator)
 {
 
     assert (node != nullptr);
-    Func_bt* function = initFunction(countNumberOfVarsInFunc(node, 0) + 1, countNumberOfCmdInFunc(node, 0) + 1); // +1 for NULL element
-    addBlock(function, countNumberOfCmdInFunc(node, 0));
+    Func_bt* function = initFunction(countNumberOfVarsInFunc(node, 0) + 1, countNumberOfBlocks(node, 0) + 1); // +1 for NULL element
 
     if (node->left)
     {
         parseFuncHead (node->left, binTranslator, function);
+        addBlock(function, countNumberOfCmdInFunc(node, 0), function->name);
     }
     else
         assert (0);
@@ -333,12 +383,13 @@ void parseFuncToIR (Node* node, BinaryTranslator* binTranslator)
     else
         assert(0);
 
-    binTranslator->funcArray[0] = *function;
+    binTranslator->funcArray[binTranslator->funcArraySize] = *function;
+    binTranslator->funcArraySize += 1;
 }
 //----------------------------------------
 
 //----------------------------------------
-#define CMD2op(opCode) addCmd(&function->blockArray[function->blockArraySize], {(unsigned int) opCode, 0, 0, 0}, \
+#define CMD2op(opCode) addCmd(&function->blockArray[function->blockArraySize - 1], {(unsigned int) opCode, 0, 0, 0}, \
         parseExpToIR(node->left, binTranslator, function),                        \
         parseExpToIR(node->right, binTranslator, function),                       \
         tempOp);
@@ -384,9 +435,9 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
                     break;
 
                 case OP_EQ:
-                    addCmd (&function->blockArray[function->blockArraySize], {(unsigned int) OP_EQ, 0, 0, 0},
+                    addCmd (&function->blockArray[function->blockArraySize - 1], {(unsigned int) OP_EQ, 0, 0, 0},
                         parseExpToIR (node->right, binTranslator, function), NULL, parseExpToIR(node->left, binTranslator, function));
-
+                    break;
 
                 default:
                     assert (0);
@@ -399,29 +450,45 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
             break;
 
         case Num_t:
-            return NumOP(node->numValue);
+            return NumOP({.num = (int) node->numValue});
             break;
     }
 }
 #undef CMD
 
+#if 1
 static void parseIfToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
+    static int numberOfIf = 0;
     Op_bt* condition = parseExpToIR(node->left, binTranslator, function);
+    char buf[15] = "";
+    sprintf(buf, "IF%d", numberOfIf);
 
     if (node->right)
     {
         if (strcmp (node->right->Name, "ELSE") == 0)
         {
-            addCmd(function, OP_LBL, NULL, NULL, NULL, "TRUE");
+            addBlock (function, countNumberOfCmdInFunc (node->right, 0), buf);
+            parseStToIR (node->right->left, binTranslator, function);
+
+            sprintf(buf, "ELSE%d", numberOfIf);
+
+            addBlock(function,  countNumberOfCmdInFunc (node->right, 0), buf);
+            parseStToIR (node->right->right, binTranslator, function);
         }
         else
         {
+            addBlock (function, countNumberOfCmdInFunc (node->right, 0), buf);
+            parseStToIR (node->right, binTranslator, function);
         }
 
+        sprintf(buf, "MERGE%d", numberOfIf);
+        addBlock(function, 20, buf);
+        numberOfIf += 1;
     }
 
 }
+#endif
 
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
@@ -450,9 +517,9 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
                     parseStToIR (node->left, binTranslator, function);
 
                 else if (strcmp (node->left->Name, "RET") == 0)
-                    parseStToIR (node->left, binTranslator, function);
-//                    addCmd(function, {(unsigned int) OP_RET, 0, 0, 0}, parseExpToIR(node->left, binTranslator, function),
-//                                        NULL, createOpBt(Var_t, addTempVar(function->varArray), 0));
+//                    parseStToIR (node->left, binTranslator, function);
+                    addCmd(&function->blockArray[function->blockArraySize - 1], {(unsigned int) OP_RET, 0, 0, 0}, parseExpToIR(node->left->left, binTranslator, function),
+                                        NULL, createOpBt(Var_t, {.var = addTempVar(function->varArray)}));
                 else if (strcmp (node->left->Name, "IF") == 0)
                     parseIfToIR (node->left, binTranslator, function);
 
@@ -473,6 +540,23 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
 }
 //----------------------------------------
 
+static void parseProgToIR (Node* node, BinaryTranslator* binTranslator)
+{
+    if (node->left)
+    {
+        if (node->left->type == Func_t)
+            parseFuncToIR(node->left, binTranslator);
+        else
+            assert (0);
+    }
+
+    if (node->right)
+    {
+        parseProgToIR(node->right, binTranslator);
+    }
+
+}
+
 void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
 {
     assert (fileName      != NULL);
@@ -486,6 +570,6 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
 
     binTranslator->funcArray = (Func_bt*) calloc (countNumberOfFunc(tree, 0) + 1, sizeof (Func_bt));
 
-    parseFuncToIR(tree->left, binTranslator);
+    parseProgToIR(tree, binTranslator);
     dumpIR("Dump.txt", binTranslator);
 }
