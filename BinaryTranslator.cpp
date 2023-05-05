@@ -10,6 +10,7 @@
 extern const char* FullOpArray[];
 
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function);
+void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator);
 
 // DUMPS
 //----------------------------------------
@@ -546,7 +547,7 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
                 else if (strcmp (node->left->Name, "RET") == 0)
 //                    parseStToIR (node->left, binTranslator, function);
                     addCmd(&function->blockArray[function->blockArraySize - 1], {(unsigned int) OP_RET, 0, 0, 0}, parseExpToIR(node->left->left, binTranslator, function),
-                                        NULL, createOpBt(Var_t, {.var = addTempVar(function->varArray)}));
+                                        NULL, NULL);
                 else if (strcmp (node->left->Name, "IF") == 0)
                     parseIfToIR (node->left, binTranslator, function);
 
@@ -599,4 +600,85 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
 
     parseProgToIR(tree, binTranslator);
     dumpIR("Dump.txt", binTranslator);
+    dumpIRToAsm("asm.txt", binTranslator);
+}
+
+//----------------------------------------
+static inline void dumpOperatorToAsm (FILE* fileptr, Op_bt* op, int numOfOp)
+{
+    const char* regArr[] = {"rbx", "rcx"};
+    switch (op->type)
+    {
+        case Pointer_t:
+            fprintf (fileptr, "pop %s\n", regArr[numOfOp]);
+            break;
+
+        case Var_t:
+            fprintf (fileptr, "push %s\n\tpop %s\n", op->value.var->name, regArr[numOfOp]);
+            break;
+
+        case Num_t:
+            fprintf (fileptr, "mov %s %d\n", regArr[numOfOp], op->value.num);
+            break;
+    }
+}
+
+static void dumpBlockToAsm (FILE* fileptr, Block_bt* block)
+{
+    fprintf (fileptr, "%s:\n", block->name);
+    for (int i = 0; i < block->cmdArraySize; i++)
+    {
+        fprintf (fileptr, "\t");
+        Cmd_bt cmd = block->cmdArray[i];
+        switch (cmd.opCode.operation)
+        {
+            case OP_ADD:
+                dumpOperatorToAsm(fileptr, cmd.operator1, 0);
+                fprintf (fileptr, "\t");
+                dumpOperatorToAsm(fileptr, cmd.operator2, 1);
+                fprintf (fileptr, "add rbx rcx\n");
+                break;
+
+            case OP_SUB:
+                dumpOperatorToAsm(fileptr, cmd.operator1, 0);
+                fprintf (fileptr, "\t");
+                dumpOperatorToAsm(fileptr, cmd.operator2, 1);
+                fprintf (fileptr, "sub rbx rcx\n");
+                break;
+
+            case OP_MUL:
+                dumpOperatorToAsm(fileptr, cmd.operator1, 0);
+                fprintf (fileptr, "\t");
+                dumpOperatorToAsm(fileptr, cmd.operator2, 1);
+                fprintf (fileptr, "mul rbx rcx\n");
+                break;
+
+            case OP_DIV:
+                dumpOperatorToAsm(fileptr, cmd.operator1, 0);
+                fprintf (fileptr, "\t");
+                dumpOperatorToAsm(fileptr, cmd.operator2, 1);
+                fprintf (fileptr, "div rbx rcx\n");
+                break;
+        }
+        fprintf (fileptr, "\tpop rbx\n");
+    }
+}
+
+static void dumpFunctionToAsm (FILE* fileptr, Func_bt* function)
+{
+    for (int i = 0; i < function->blockArraySize; i++)
+    {
+        dumpBlockToAsm (fileptr, &function->blockArray[i]);
+    }
+}
+
+void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator)
+{
+    FILE* fileptr = fopen (fileName, "w");
+    assert (fileptr != NULL);
+
+    for (int i = 0; i < binTranslator->funcArraySize; i++)
+    {
+        dumpFunctionToAsm (fileptr, &binTranslator->funcArray[i]);
+    }
 }
