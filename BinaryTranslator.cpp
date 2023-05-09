@@ -682,3 +682,20 @@ void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator)
         dumpFunctionToAsm (fileptr, &binTranslator->funcArray[i]);
     }
 }
+
+void fisrtIteration (BinaryTranslator* binTranslator)
+{
+    size_t ip = 0;
+
+    for (int i = 0; i < binTranslator->funcArraySize; i++)
+    {
+        for (int j = 0; j < binTranslator->funcArray[i].blockArraySize; j ++)
+        {
+            for (int k = 0; k < binTranslator->funcArray[i].blockArray[j].cmdArraySize; k++)
+            {
+                ip++;
+            }
+            binTranslator->funcArray[i].blockArray[j].codeOffset = ip;
+        }
+    }
+}

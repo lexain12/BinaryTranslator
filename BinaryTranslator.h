@@ -41,6 +41,7 @@ struct Block_bt
     Cmd_bt* cmdArray;
     int     cmdArraySize;
     int     cmdArrayCapacity;
+    size_t  codeOffset;
 };
 
 union Value_bt
@@ -74,7 +75,8 @@ struct BinaryTranslator
     int      funcArraySize;
     Var_bt*  globalVars;
     size_t   BT_ip;
-    Func_bt* x86_array;
+    unsigned char* x86_array;
+    NameTable* nameTable;
 };
 
 //----------------------------------------------------------------------------
