@@ -4,7 +4,7 @@ int main ()
 {
     BinaryTranslator binTranslator = {};
 
-    parseTreeToIR("./tests/DBfileHard.txt", &binTranslator);
+    parseTreeToIR("./tests/test0.txt", &binTranslator);
 
     return 0;
 }
