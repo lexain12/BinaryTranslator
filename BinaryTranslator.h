@@ -77,7 +77,7 @@ struct BinaryTranslator
     int      funcArraySize;
     Var_bt*  globalVars;
     size_t   BT_ip;
-    char* x86_array;
+    unsigned char* x86_array;
     size_t x86_arraySize;
     NameTable* nameTable;
 };
