@@ -229,7 +229,7 @@ static inline void translateIf (FILE* fileptr, BinaryTranslator* binTranslator, 
     x86_cmd.code = CMP_XMM0_XMM1;
     x86_cmd.code = SIZE_CMP_XMM;
     writeCmdIntoArray(binTranslator, x86_cmd);
-    fprintf(fileptr, "\t cmp xmm0, xmm1\n");
+    fprintf(fileptr, "\t ucomisd xmm0, xmm1\n");
 
     fprintf (fileptr, "\t");
     dumpOperatorToAsm(fileptr, binTranslator, cmd.operator1, 0);

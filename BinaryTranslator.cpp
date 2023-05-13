@@ -322,6 +322,19 @@ static Block_bt* addBlock (Func_bt* function, size_t numOfCmd, char* name)
 
     return &function->blockArray[function->blockArraySize - 1];
 };
+
+static Block_bt* findFunctionBlock (BinaryTranslator* binTranslator, char* name)
+{
+    for (size_t i = 0; i < binTranslator->funcArraySize; i++)
+    {
+        if (strcmp (name, binTranslator->funcArray[i].name) == 0)
+        {
+            return binTranslator->funcArray[i].blockArray;
+        }
+    }
+
+    assert (0);
+}
 //----------------------------------------
 // Work with functions
 //----------------------------------------
@@ -357,7 +370,8 @@ static void parseFuncParams (Node* node, BinaryTranslator* binTranslator, Func_b
 
     if (node->type == Key_t && strcmp (node->Name, "PARAM") == 0)
     {
-        addVar (function->varArray, &(function->varArraySize), node->left->var.varName, Memory, 1);
+        Var_bt* var = addVar (function->varArray, &(function->varArraySize), node->left->var.varName, Memory, 1);
+        addCmd (&function->blockArray[0], {.operation = OP_PAROUT}, NULL, NULL, createOpBt(Var_t, {.var = var}));
     }
 
     if (node->right)
@@ -526,6 +540,28 @@ static void parseIfToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
 }
 #endif
 
+static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
+{
+    if (node->left)
+        addCmd (&function->blockArray[function->blockArraySize], {.operation = OP_PARIN}, createOpBt(Var_t, {.var = findVar (function->varArray, node->var.varName)}), NULL, NULL);
+
+    if (node->right)
+        parseCallParam(node->right, binTranslator, function);
+}
+
+static void parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
+{
+    Node* curNode = node->left;
+
+    if (curNode->left)
+    {
+        parseCallToIR(curNode->left, binTranslator, function);
+    }
+
+
+    addCmd (&function->blockArray[function->blockArraySize], {.operation = OP_CALL}, createOpBt(Pointer_t, {.block=findFunctionBlock(binTranslator, curNode->Name)}), NULL, NULL);
+}
+
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
     assert (node          != NULL);
@@ -547,6 +583,11 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
             case Num_t:
                 parseExpToIR (node->left, binTranslator, function);
                 break;
+
+            case Func_t:
+                if (strcmp (node->left->Name, "CALL") == 0)
+                    parseCallToIR (node->left, binTranslator, function);
+
 
             case Key_t:
                 if (strcmp (node->left->Name, "ST") == 0)
