@@ -37,7 +37,7 @@ static inline void writeNumIntoArray (BinaryTranslator* binTranslator, int Numbe
     while (Number > 0)
     {
         printf ("HERE %x\n", Number & 0xFF);
-        *(binTranslator->x86_array + binTranslator->BT_ip) = (char) Number & 0xff;
+        *(binTranslator->x86_array + binTranslator->BT_ip) = (unsigned char) Number & 0xff;
         Number >>= 8;
     }
 
@@ -135,7 +135,20 @@ static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTransl
             break;
 
         case Var_t:
-            fprintf (fileptr, "movsd xmm%d, [r9]\n", numOfOp);
+            switch (op->value.var->location)
+            {
+                case Register:
+                    break;
+
+                case Memory:
+                    fprintf (fileptr, "movsd xmm%d, [r9 - %lu]\n", numOfOp, op->value.var->offset);
+                    break;
+
+                case Stack:
+                    fprintf (fileptr, "movsd xmm%d, [rsp]\n", numOfOp);
+                    fprintf (fileptr, "\tadd rsp, 8\n");
+                    break;
+            }
             break;
 
         case Num_t:
@@ -152,7 +165,7 @@ static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTransl
             Dumpx86Buf(binTranslator, 0, 16);
 
             fprintf (fileptr, "push %d\n", op->value.num);
-            fprintf (fileptr, "\tmov xmm%d, [rsp]\n", numOfOp);
+            fprintf (fileptr, "\tmovsd xmm%d, [rsp]\n", numOfOp);
             fprintf (fileptr, "\tadd rsp, 8\n");
             break;
     }
@@ -201,12 +214,54 @@ static void translateBaseMath (FILE* fileptr, BinaryTranslator* binTranslator, C
 
     write_sub_rsp(binTranslator, 0);
     fprintf (fileptr, "\tmovsd [rsp], xmm0\n");
-    fprintf (fileptr, "\tadd sub, 0x08\n");
+    fprintf (fileptr, "\tadd rsp, 0x08\n");
+}
+
+static inline void translateIf (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    x86_cmd x86_cmd = {};
+
+    write_mov_xmm_rsp(binTranslator, 0, 0);
+    fprintf (fileptr, "\t movsd xmm0, [rsp]\n");
+    write_mov_xmm_rsp (binTranslator, 1, 0);
+    fprintf (fileptr, "\t movsd xmm1, [rsp]\n");
+
+    x86_cmd.code = CMP_XMM0_XMM1;
+    x86_cmd.code = SIZE_CMP_XMM;
+    writeCmdIntoArray(binTranslator, x86_cmd);
+    fprintf(fileptr, "\t cmp xmm0, xmm1\n");
+
+    fprintf (fileptr, "\t");
+    dumpOperatorToAsm(fileptr, binTranslator, cmd.operator1, 0);
+    fprintf (fileptr, "\t jmp %s\n", cmd.operator1->value.block->name);
+
+    if (cmd.operator2)
+    {
+        x86_cmd.code = JMP_OP;
+        x86_cmd.size = SIZE_JMP;
+        writeCmdIntoArray(binTranslator, x86_cmd);
+        fprintf (fileptr, "\t jmp %s\n", cmd.operator2->value.block->name);
+    }
+}
+
+static inline void translateEq (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    fprintf (fileptr, "movsd xmm0, [rsp]\n");
+    fprintf (fileptr, "movsd [r9 + %lu], xmm0\n", cmd.dest->value.var->offset);
+}
+
+static inline void translateRet (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    fprintf (fileptr, "Ret\n");
+}
+
+static inline void translateJmp (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    fprintf (fileptr, "jmp %s\n", cmd.operator1->value.block->name);
 }
 
 static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Block_bt* block)
 {
-    fprintf (fileptr, "%s:\n", block->name);
     for (int i = 0; i < block->cmdArraySize; i++)
     {
         fprintf (fileptr, "\t");
@@ -219,25 +274,23 @@ static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Bloc
             case OP_SUB:
             case OP_MUL:
             case OP_DIV:
-                translateBaseMath(fileptr, binTranslator, cmd);
+                translateBaseMath (fileptr, binTranslator, cmd);
                 break;
 
             case OP_IF:
-                dumpOperatorToAsm(fileptr, binTranslator, cmd.operator1, 0);
-                fprintf (fileptr, "\t");
-                dumpOperatorToAsm(fileptr, binTranslator, cmd.operator2, 1);
+                translateIf (fileptr, binTranslator, cmd);
                 break;
 
             case OP_EQ:
+                translateEq (fileptr, binTranslator, cmd);
                 break;
 
             case OP_RET:
-                break;
-
-            case OP_VAR:
+                translateRet (fileptr, binTranslator, cmd);
                 break;
 
             case OP_JMP:
+                translateJmp (fileptr, binTranslator, cmd);
                 break;
         }
     }
@@ -245,8 +298,13 @@ static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Bloc
 
 static void dumpFunctionToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Func_bt* function)
 {
-    for (int i = 0; i < function->blockArraySize; i++)
+    fprintf (fileptr, "%s:\n", function->blockArray[0].name);
+    fprintf (fileptr, "add r9, %lu\n", (function->varArraySize - function->numberOfTempVar)*8);
+    dumpBlockToAsm (fileptr, binTranslator, &function->blockArray[0]);
+
+    for (int i = 1; i < function->blockArraySize; i++)
     {
+        fprintf (fileptr, "%s:\n", function->blockArray[i].name);
         dumpBlockToAsm (fileptr, binTranslator, &function->blockArray[i]);
     }
 }
@@ -254,7 +312,7 @@ static void dumpFunctionToAsm (FILE* fileptr, BinaryTranslator* binTranslator, F
 void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator)
 {
     FILE* mainFilePtr = fopen (fileName, "wb");
-    FILE* fileptr = fopen ("DebugAsm.txt", "w");
+    FILE* fileptr = fopen ("DebugAsm.s", "w");
 
     for (int i = 0; i < binTranslator->funcArraySize; i++)
     {
@@ -286,3 +344,7 @@ void firstIteration (BinaryTranslator* binTranslator)
     binTranslator->BT_ip = 0;
 }
 
+void secondIteration (BinaryTranslator* binTranslator)
+{
+
+}

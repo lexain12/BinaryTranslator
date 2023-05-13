@@ -24,9 +24,9 @@ struct OpCode_bt
 
 struct Var_bt
 {
-    char* name;
+    char*    name;
     Location location;
-    size_t pointer;
+    size_t offset;
 };
 
 struct Cmd_bt
@@ -41,8 +41,8 @@ struct Block_bt
 {
     char name[15];
     Cmd_bt* cmdArray;
-    int     cmdArraySize;
-    int     cmdArrayCapacity;
+    size_t  cmdArraySize;
+    size_t  cmdArrayCapacity;
     size_t  codeOffset;
 };
 
@@ -64,17 +64,18 @@ struct Func_bt
     char    name[15];
     Var_bt* varArray;
     Block_bt* blockArray;
-    int varArraySize;
-    int varArrayCapacity;
-    int blockArraySize;
-    int blockArrayCapacity;
+    size_t varArraySize;
+    size_t varArrayCapacity;
+    size_t numberOfTempVar;
+    size_t blockArraySize;
+    size_t blockArrayCapacity;
 };
 
 // Elements with nullptr in name are needed in the end of array
 struct BinaryTranslator
 {
     Func_bt* funcArray;
-    int      funcArraySize;
+    size_t   funcArraySize;
     Var_bt*  globalVars;
     size_t   BT_ip;
     unsigned char* x86_array;
