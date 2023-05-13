@@ -26,7 +26,7 @@ struct Var_bt
 {
     char*    name;
     Location location;
-    size_t offset;
+    int offset;
 };
 
 struct Cmd_bt

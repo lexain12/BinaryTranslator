@@ -1,5 +1,6 @@
 #include "./language/common.h"
 #include "BinaryTranslator.h"
+#include <bits/types/FILE.h>
 #include <cstdint>
 #include <cstdio>
 
@@ -213,8 +214,8 @@ static void translateBaseMath (FILE* fileptr, BinaryTranslator* binTranslator, C
     writeCmdIntoArray(binTranslator, x86_cmd);
 
     write_sub_rsp(binTranslator, 0);
+    fprintf (fileptr, "\tsub rsp, 0x08\n");
     fprintf (fileptr, "\tmovsd [rsp], xmm0\n");
-    fprintf (fileptr, "\tadd rsp, 0x08\n");
 }
 
 static inline void translateIf (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
@@ -247,7 +248,7 @@ static inline void translateIf (FILE* fileptr, BinaryTranslator* binTranslator, 
 static inline void translateEq (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
 {
     fprintf (fileptr, "movsd xmm0, [rsp]\n");
-    fprintf (fileptr, "movsd [r9 + %lu], xmm0\n", cmd.dest->value.var->offset);
+    fprintf (fileptr, "movsd [r9 - %lu], xmm0\n", cmd.dest->value.var->offset);
 }
 
 static inline void translateRet (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
@@ -258,6 +259,35 @@ static inline void translateRet (FILE* fileptr, BinaryTranslator* binTranslator,
 static inline void translateJmp (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
 {
     fprintf (fileptr, "jmp %s\n", cmd.operator1->value.block->name);
+}
+
+static inline void translateParamOut (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    fprintf (fileptr, "movsd xmm0, [rsp]\n");
+    fprintf (fileptr, "add rsp, 8\n");
+    fprintf (fileptr, "movsd [r9 - %lu], xmm0\n", cmd.dest->value.var->offset);
+}
+
+static inline void translateParamIn (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    switch (cmd.operator1->type)
+    {
+        case Num_t:
+            fprintf (fileptr, "push %d\n", cmd.operator1->value.num);
+            break;
+
+        case Var_t:
+            fprintf (fileptr, "movsd xmm0, [r9 - %d]\n", cmd.operator1->value.var->offset);
+            fprintf (fileptr, "sub rsp, 8\n");
+            fprintf (fileptr, "movsd [rsp], xmm0\n" );
+
+            break;
+    }
+}
+
+static inline void translateCall (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    fprintf (fileptr, "call %s\n", cmd.operator1->value.block->name);
 }
 
 static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Block_bt* block)
@@ -291,6 +321,18 @@ static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Bloc
 
             case OP_JMP:
                 translateJmp (fileptr, binTranslator, cmd);
+                break;
+
+            case OP_PAROUT:
+                translateParamOut (fileptr, binTranslator, cmd);
+                break;
+
+            case OP_PARIN:
+                translateParamIn (fileptr, binTranslator, cmd);
+                break;
+
+            case OP_CALL:
+                translateCall (fileptr, binTranslator, cmd);
                 break;
         }
     }
