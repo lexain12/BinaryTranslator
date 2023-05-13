@@ -23,7 +23,7 @@ static void printOperand (FILE* fileptr, const Op_bt* op)
     fprintf (stderr, "HERE\n");
     assert (op != NULL);
     fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
-    fprintf (stderr, "%ul\n", op->type);
+    fprintf (stderr, "%d\n", op->type);
     fprintf (stderr, "HERE\n");
 
     switch (op->type)
@@ -239,8 +239,11 @@ static Var_bt* addVar (Var_bt* varArray, size_t* varArraySize, char* name, Locat
 
 static Var_bt* findVar (Var_bt* varArray, char* name)
 {
+    assert (name != nullptr);
+
     for (int i = 0; varArray[i].name != NULL; i++)
     {
+        fprintf (stderr, "HERE {%s} {%s}\n", varArray[i].name, name);
         if (strcmp (varArray[i].name, name) == 0)
             return &varArray[i];
     }
@@ -281,7 +284,7 @@ static Op_bt* createOpBt (Type type, Value_bt value)
 
     return opPointer;
 }
-#define NumOP(num) createOpBt (Num_t, num);
+#define NumOP(num) createOpBt (Num_t, num)
 
 static Cmd_bt* addCmd (Block_bt* block, OpCode_bt opCode, Op_bt* op1, Op_bt* op2, Op_bt* dest)
 {
@@ -542,8 +545,26 @@ static void parseIfToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
 
 static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
+    fprintf (stderr, "parsing \n");
+    fprintf (stderr, "%lu %lu\n", function->blockArraySize, function->blockArrayCapacity);
+    fprintf (stderr, "BLYAAAAAAA\n");
     if (node->left)
-        addCmd (&function->blockArray[function->blockArraySize], {.operation = OP_PARIN}, createOpBt(Var_t, {.var = findVar (function->varArray, node->var.varName)}), NULL, NULL);
+    {
+        switch (node->left->type)
+        {
+            case Num_t:
+                fprintf (stderr, "BLYAAAAAAA\n");
+                addCmd (&function->blockArray[function->blockArraySize - 1], {.operation = OP_PARIN}, createOpBt(Num_t, {.num = (int) node->left->numValue}), NULL, NULL);
+                break;
+            case Var_t:
+                fprintf (stderr, "BLYAAAAAAA\n");
+                fprintf (stderr, "%s\n", node->left->var.varName);
+                findVar (function->varArray, node->left->var.varName);
+                fprintf (stderr, "%s\n", findVar(function->varArray, node->left->var.varName)->name);
+                addCmd (&function->blockArray[function->blockArraySize - 1], {.operation = OP_PARIN}, createOpBt(Var_t, {.var = findVar (function->varArray, node->left->var.varName)}), NULL, NULL);
+                break;
+        }
+    }
 
     if (node->right)
         parseCallParam(node->right, binTranslator, function);
@@ -552,14 +573,15 @@ static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt
 static void parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
     Node* curNode = node->left;
+    fprintf (stderr, "Type node %d\n", curNode->type);
 
     if (curNode->left)
     {
-        parseCallToIR(curNode->left, binTranslator, function);
+        parseCallParam(curNode->left, binTranslator, function);
     }
+    fprintf (stderr, "Parse param\n");
 
-
-    addCmd (&function->blockArray[function->blockArraySize], {.operation = OP_CALL}, createOpBt(Pointer_t, {.block=findFunctionBlock(binTranslator, curNode->Name)}), NULL, NULL);
+    addCmd (&function->blockArray[function->blockArraySize - 1], {.operation = OP_CALL}, createOpBt(Pointer_t, {.block=findFunctionBlock(binTranslator, curNode->Name)}), NULL, NULL);
 }
 
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
