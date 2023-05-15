@@ -89,29 +89,33 @@ struct x86_cmd
     size_t   size;
 };
 
+enum REG_NUM
+{
+    RAX = 0x00,
+    RCX = 0x01,
+    RDX = 0x02,
+    RBX = 0x03,
+};
+
 enum OPCODES_x86 : uint64_t // everything reversed
 {
 
 // Watch OPCODE_MASKS if you want to construct one of the following cmds.
 // ATTENTION: all opcodes are written in reverse order.
+    SUB_RAX_RBX = 0xD82948,
+    ADD_RAX_RBX = 0xD80148,
+    MUL_RBX     = 0xE3F748,
+    DIV_RBX     = 0xF3F748,
 
-    ARITHM_XMM0_XMM1 = 0xC1000FF2,  // <add, sub, mul, div> xmm0, xmm1
-                        // ^------changing this byte to get add/sub/div/mul
-
-                //         ,------- xmm 0 - 4
-    MOV_XMM_RSP = 0x002400100FF2, // movsd xmm0-4, [rsp + ?]
-                //  ^--[rsp + ?]
-
-                //      ,------- xmm 0 - 4
-    MOV_RSP_XMM = 0x002400110FF2, // same as previous
-                //  ^--[rsp + ?]
-
-    ADD_RSP = 0x00C48348,   // add rsp+?
-    SUB_RSP = 0x00EC8348,  // sub rsp+?
-    //          ^-- how much to add
-
-    // mov rdi, [r10 + ?]
-    MOV_RDI_R10 = 0xBA8B49, // this must be followed with uint32 ptr
+    // mov [r9 + %d], %d
+    // A number after
+    MOV_MEM_IMM   = 0xFF41C749,
+    //                ^ -offset
+    //                mov [r9 + offset], rax
+    MOV_MEM_REG   = 0xFF008949,
+    //                ^ ff - offset to make [r9 - offset]
+    MOV_REG_MEM   = 0xFF008B49,
+    MOV_REG_IMM   = 0xB8,
 
     // mov [r10 + ?], rdi
     MOV_R10_RDI = 0xBA8949, // this must be followed with uint32 ptr
@@ -126,7 +130,7 @@ enum OPCODES_x86 : uint64_t // everything reversed
     POP_REG = 0x58,  //              ^--- add 0, 1, 2, 3 to get rax, rcx, rdx or rbx
 
     COND_JMP = 0x000F,
-            //   ^-- by applying bit mask, can get all types of jmp
+            //   ^-- by applying bit mask, can get all types f jmp
 
 // Constant expressions, no need for bit masks
 
@@ -169,11 +173,9 @@ enum OPCODES_x86 : uint64_t // everything reversed
 
 enum OPCODE_MASKS : uint64_t
 {
-    ADD_MASK = 0x58,    // Arithm operation with double
-    SUB_MASK = 0x5c,
-    MUL_MASK = 0x59,
-    DIV_MASK = 0x5e,
-
+    MOV_RAX_MASK = 0x41,
+    MOV_RBX_MASK = 0x59,
+    MOV_RCX_MASK = 0x49,
     XMM0_MASK = 0x44,   // masks for work with xmm registers
     XMM1_MASK = 0x4c,
 
@@ -194,6 +196,9 @@ enum OPCODE_SIZES
     SIZE_PUSH_32b = 1,
     SIZE_POP_RSI = 1,
     SIZE_POP_RDI = 1,
+
+    SIZE_MOV_MEM_IMM = 4,
+    SIZE_MOV_REG_IMM = 1,
 
     SIZE_PUSH_POP_All = 6,
     SIZE_AND_RSP = 4,

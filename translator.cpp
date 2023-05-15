@@ -1,6 +1,7 @@
 #include "./language/common.h"
 #include "BinaryTranslator.h"
 #include <bits/types/FILE.h>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <sys/types.h>
@@ -33,106 +34,109 @@ static inline void writeCmdIntoArray (BinaryTranslator* binTranslator, x86_cmd c
     Dumpx86Buf(binTranslator, 0, 16);
 }
 
-static inline void writeNumIntoArray (BinaryTranslator* binTranslator, int Number)
+static inline void writeNumIntoArray (BinaryTranslator* binTranslator, int number)
 {
     Dumpx86Buf(binTranslator, 0, 30);
-    while (Number > 0)
+    while (number > 0)
     {
-        printf ("HERE %x\n", Number & 0xFF);
-        *(binTranslator->x86_array + binTranslator->BT_ip) = (unsigned char) Number & 0xff;
-        Number >>= 8;
+        printf ("HERE %x\n", number & 0xFF);
+        *(binTranslator->x86_array + binTranslator->BT_ip) = (unsigned char) number & 0xff;
+        number >>= 8;
     }
 
     binTranslator->BT_ip += 4;
     Dumpx86Buf(binTranslator, 0, 30);
 }
 
-static inline void writePushPop (BinaryTranslator* binTranslator, size_t reg)
+static inline void write_push_reg (BinaryTranslator* binTranslator, REG_NUM reg)
 {
-
-}
-
-static inline void write_mov_xmm_rsp(BinaryTranslator* binTranslator, int numberOfXmm, uint64_t offset)
-{
-    Dumpx86Buf(binTranslator, 0, 16);
-    x86_cmd mov_xmm_rsp =
-    {
-        .code = MOV_XMM_RSP + offset,
-        .size = SIZE_MOV_XMM_RSP,
-    };
-
-    switch (numberOfXmm)
-    {
-        case 0:
-            mov_xmm_rsp.code += 0x1000000 * XMM0_MASK;
-
-            break;
-
-        case 1:
-            mov_xmm_rsp.code += 0x1000000 * XMM1_MASK;
-            break;
-    }
-
-    writeCmdIntoArray(binTranslator, mov_xmm_rsp);
-}
-
-static inline void write_mov_rsp_xmm (BinaryTranslator* binTranslator, int numberOfXmm, uint64_t offset)
-{
-    Dumpx86Buf(binTranslator, 0, 16);
-    x86_cmd mov_rsp_xmm =
-    {
-        .code = MOV_RSP_XMM + offset,
-        .size = SIZE_MOV_XMM_RSP,
-    };
-
-    switch (numberOfXmm)
-    {
-        case 0:
-            mov_rsp_xmm.code += 0x10000 * XMM0_MASK;
-
-            break;
-
-        case 1:
-            mov_rsp_xmm.code += 0x10000 * XMM1_MASK;
-            break;
-    }
-
-    writeCmdIntoArray(binTranslator, mov_rsp_xmm);
-}
-
-static inline void write_add_rsp (BinaryTranslator* binTranslator, uint64_t offset)
-{
-    Dumpx86Buf(binTranslator, 0, 16);
     x86_cmd cmd =
     {
-        .code = ADD_RSP + offset * 0x1000000,
-        .size = SIZE_ADD_RSP,
+        .code = PUSH_REG + reg,
+        .size = SIZE_PUSH_REG,
+    };
+
+    writeCmdIntoArray (binTranslator, cmd);
+}
+
+static inline void write_pop_reg (BinaryTranslator* binTranslator, REG_NUM reg)
+{
+    x86_cmd cmd =
+    {
+        .code = POP_REG + reg,
+        .size = SIZE_POP_REG,
+    };
+    writeCmdIntoArray (binTranslator, cmd);
+}
+
+static inline void write_push_num (BinaryTranslator* binTranslator, int number)
+{
+    x86_cmd cmd =
+    {
+        .code = PUSH_32b,
+        .size = SIZE_PUSH_32b,
+    };
+
+    writeCmdIntoArray (binTranslator, cmd);
+    writeNumIntoArray (binTranslator, number);
+}
+
+static inline void write_mov_mem_imm (BinaryTranslator* binTranslator, size_t offset, int number)
+{
+    x86_cmd cmd = {
+        .code = MOV_MEM_IMM,
+        .size = SIZE_MOV_MEM_IMM - offset
+    };
+
+    writeCmdIntoArray (binTranslator, cmd);
+    writeNumIntoArray (binTranslator, number);
+}
+
+static inline void write_mov_mem_reg (BinaryTranslator* binTranslator, size_t offset, REG_NUM reg)
+{
+    int regMasks[] = {MOV_RAX_MASK, MOV_RCX_MASK, 0, MOV_RBX_MASK};
+    x86_cmd cmd =
+    {
+        .code = MOV_MEM_REG + regMasks[reg] * 0x100 - offset,
+        .size = SIZE_MOV_MEM_IMM ,
     };
 
     writeCmdIntoArray(binTranslator, cmd);
 }
 
-static inline void write_sub_rsp (BinaryTranslator* binTranslator, uint64_t offset)
+static inline void write_mov_reg_mem (BinaryTranslator* binTranslator, size_t offset, REG_NUM reg)
 {
-    Dumpx86Buf(binTranslator, 0, 16);
+    int regMasks[] = {MOV_RAX_MASK, 0, 0, MOV_RBX_MASK};
     x86_cmd cmd =
     {
-        .code = SUB_RSP + offset * 0x1000000,
-        .size = SIZE_ADD_RSP,
+        .code = MOV_REG_MEM + regMasks[reg] * 0x100 - offset,
+        .size = SIZE_MOV_MEM_IMM ,
     };
 
     writeCmdIntoArray(binTranslator, cmd);
 }
 
-static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Op_bt* op, int numOfOp)
+static inline void write_mov_reg_num (BinaryTranslator* binTranslator, REG_NUM reg, int number)
+{
+    x86_cmd cmd =
+    {
+        .code = MOV_REG_IMM,
+        .size = SIZE_MOV_REG_IMM,
+    };
+
+    writeCmdIntoArray (binTranslator, cmd);
+    writeNumIntoArray (binTranslator, number);
+}
+
+
+static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Op_bt* op, REG_NUM reg)
 {
     Dumpx86Buf(binTranslator, 0, 16);
-    const char* regArr[] = {"rax", "rbx"};
+    const char* regArr[] = {"rax", "rcx", "rdx","rbx"};
 
     switch (op->type)
     {
         case Pointer_t:
-            write_mov_xmm_rsp(binTranslator, numOfOp, 0);
             fprintf (fileptr, "ja %s\n", op->value.block->name);
             break;
 
@@ -140,34 +144,24 @@ static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTransl
             switch (op->value.var->location)
             {
                 case Register:
-                    fprintf (fileptr, "mov %s, rcx\n", regArr[numOfOp]);
+                    fprintf (fileptr, "mov %s, rcx\n", regArr[reg]);
                     break;
 
                 case Memory:
-                    fprintf (fileptr, "mov %s, [r9 - %lu]\n", regArr[numOfOp], op->value.var->offset);
+                    fprintf (fileptr, "mov %s, [r9 - %lu]\n", regArr[reg], op->value.var->offset);
+                    write_mov_reg_mem (binTranslator, op->value.var->offset, reg);
                     break;
 
                 case Stack:
-                    fprintf (fileptr, "pop %s\n", regArr[numOfOp]);
+                    fprintf (fileptr, "pop %s\n", regArr[reg]);
+                    write_pop_reg (binTranslator, reg);
                     break;
             }
             break;
 
         case Num_t:
-            binTranslator->x86_array[binTranslator->BT_ip] = PUSH_32b;
-            binTranslator->BT_ip += SIZE_PUSH_32b;
-
-            Dumpx86Buf(binTranslator, 0, 16);
-
-            writeNumIntoArray(binTranslator, op->value.num);
-            write_mov_xmm_rsp(binTranslator, numOfOp, 0);
-
-            write_add_rsp (binTranslator, 8);
-
-            Dumpx86Buf(binTranslator, 0, 16);
-
-
-            fprintf (fileptr, "mov %s, %d\n", regArr[numOfOp], op->value.num);
+            fprintf (fileptr, "mov %s, %d\n", regArr[reg], op->value.num);
+            write_mov_reg_num(binTranslator, reg, op->value.num);
             break;
     }
 }
@@ -177,9 +171,9 @@ static void translateBaseMath (FILE* fileptr, BinaryTranslator* binTranslator, C
     x86_cmd x86_cmd = {};
     fprintf (fileptr, "\n ;Arithm");
     fprintf (fileptr, "\n\t");
-    dumpOperatorToAsm(fileptr, binTranslator, cmd.operator1, 0);
+    dumpOperatorToAsm(fileptr, binTranslator, cmd.operator1, RAX);
     fprintf (fileptr, "\t");
-    dumpOperatorToAsm(fileptr, binTranslator, cmd.operator2, 1);
+    dumpOperatorToAsm(fileptr, binTranslator, cmd.operator2, RBX);
     fprintf (fileptr, "\t");
 
     switch (cmd.opCode.operation)
@@ -223,9 +217,7 @@ static inline void translateIf (FILE* fileptr, BinaryTranslator* binTranslator, 
 {
     x86_cmd x86_cmd = {};
 
-    write_mov_xmm_rsp(binTranslator, 0, 0);
-    dumpOperatorToAsm(fileptr, binTranslator, cmd.dest, 0);
-    write_mov_xmm_rsp (binTranslator, 1, 0);
+    dumpOperatorToAsm(fileptr, binTranslator, cmd.dest, RAX);
     fprintf (fileptr, "\t xor rbx, rbx\n");
 
     x86_cmd.code = CMP_XMM0_XMM1;
@@ -253,23 +245,29 @@ static inline void translateEq (FILE* fileptr, BinaryTranslator* binTranslator, 
             switch (cmd.operator1->value.var->location)
             {
                 case Register:
+                    write_mov_reg_mem (binTranslator, cmd.dest->value.var->offset, RCX);
                     fprintf (fileptr, "mov [r9 - %d], rcx\n", cmd.dest->value.var->offset);
                     break;
 
                 case Stack:
                     fprintf (fileptr, "pop rax\n");
+                    write_pop_reg (binTranslator, RAX);
                     fprintf (fileptr, "mov [r9 - %d], rax\n", cmd.dest->value.var->offset);
+                    write_mov_mem_reg(binTranslator, cmd.dest->value.var->offset, RAX);
                     break;
 
                 case Memory:
                     fprintf (fileptr, "mov rax, [r9 + %d]\n", cmd.dest->value.var->offset);
+                    write_mov_mem_reg (binTranslator, cmd.dest->value.var->offset, RAX);
                     fprintf (fileptr, "mov [r9 + %d], rax\n", cmd.operator1->value.var->offset);
+                    write_mov_mem_reg (binTranslator, cmd.operator1->value.var->offset, RAX);
                     break;
             }
             break;
 
         case Num_t:
             fprintf (fileptr, "mov qword [r9 - %d], %d\n", cmd.dest->value.var->offset, cmd.operator1->value.num);
+            write_mov_mem_imm (binTranslator, cmd.dest->value.var->offset, cmd.operator1->value.num);
             break;
     }
 }
@@ -283,10 +281,12 @@ static inline void translateRet (FILE* fileptr, BinaryTranslator* binTranslator,
             {
                 case Stack:
                     fprintf (fileptr, "pop rcx\n");
+                    write_pop_reg (binTranslator, RCX);
                     break;
 
                 case Memory:
                     fprintf (fileptr, "mov rcx, [r9 - %d]\n", cmd.operator1->value.var->offset);
+                    write_mov_reg_mem (binTranslator, cmd.operator1->value.var->offset, RCX);
                     break;
 
             }
@@ -308,6 +308,7 @@ static inline void translateParamOut (FILE* fileptr, BinaryTranslator* binTransl
     fprintf (fileptr, "pop r10\n");
     fprintf (fileptr, "pop rax\n");
     fprintf (fileptr, "mov [r9 - %d], rax\n", cmd.dest->value.var->offset);
+    write_mov_mem_reg (binTranslator, cmd.dest->value.var->offset, RAX);
     fprintf (fileptr, "push r10\n");
 }
 
@@ -317,13 +318,16 @@ static inline void translateParamIn (FILE* fileptr, BinaryTranslator* binTransla
     {
         case Num_t:
             fprintf (fileptr, "push %d\n", cmd.operator1->value.num);
+            write_push_num (binTranslator, cmd.operator1->value.num);
             break;
 
         case Var_t:
             if (cmd.operator1->value.var->location == Memory)
             {
                 fprintf (fileptr, "mov rax, [r9 - %d]\n", cmd.operator1->value.var->offset);
+                write_mov_reg_mem (binTranslator, cmd.operator1->value.var->offset, RAX);
                 fprintf (fileptr, "push rax\n" );
+                write_push_reg (binTranslator, RAX);
             }
 
             break;
