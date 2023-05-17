@@ -4,7 +4,8 @@ int main ()
 {
     BinaryTranslator binTranslator = {};
 
-    parseTreeToIR("./tests/faktorial.txt", &binTranslator);
+    parseTreeToIR("./tests/OUT_TEST.txt", &binTranslator);
+    startProg (&binTranslator);
 
     return 0;
 }

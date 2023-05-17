@@ -194,6 +194,16 @@ static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTransl
             {
                 case Register:
                     fprintf (fileptr, "mov %s, rcx\n", regArr[reg]);
+                    switch (reg)
+                    {
+                        case RAX:
+                            SimpleCMD(MOV_RCX_RAX);
+                            break;
+
+                        case RBX:
+                            SimpleCMD(MOV_RCX_RBX);
+                            break;
+                    }
                     break;
 
                 case Memory:
@@ -393,6 +403,33 @@ static inline void translateCall (FILE* fileptr, BinaryTranslator* binTranslator
         fprintf (fileptr, "call %s\n", cmd.operator1->value.block->name);
 }
 
+static void myPrint (int num)
+{
+    printf ("OUT: %d\n", num);
+}
+
+static void translateOut (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    SimpleCMD(PUSH_R9);
+    SimpleCMD(PUSH_R10);
+
+    dumpOperatorToAsm(fileptr, binTranslator, cmd.operator1, RAX);
+    SimpleCMD(PUSH_RBP);
+    SimpleCMD(PUSH_RSP);
+    SimpleCMD(MOV_RDI_RAX);
+    fprintf (fileptr, "\t call printf\n");
+    SimpleCMD(CALL_OP);
+
+    writeRelAddress(binTranslator, (uint64_t) binTranslator->x86_array + binTranslator->BT_ip, (uint64_t) &myPrint);
+
+    SimpleCMD(POP_RSP);
+    SimpleCMD(POP_RBP);
+
+    SimpleCMD(POP_R10);
+    SimpleCMD(POP_R9);
+
+}
+
 static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Block_bt* block)
 {
     for (int i = 0; i < block->cmdArraySize; i++)
@@ -436,6 +473,9 @@ static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Bloc
 
             case OP_CALL:
                 translateCall (fileptr, binTranslator, cmd);
+                break;
+            case OP_OUT:
+                translateOut (fileptr, binTranslator, cmd);
                 break;
         }
     }
@@ -565,7 +605,7 @@ void firstIteration (BinaryTranslator* binTranslator)
     }
 
     binTranslator->x86_arraySize = ip;
-    binTranslator->x86_array = (unsigned char*) calloc (ip, sizeof (char));
+    binTranslator->x86_array = (unsigned char*) aligned_alloc(4096, sizeof(char*) * ip);
     binTranslator->BT_ip = 0;
     binTranslator->nameTable.data = (Name*) calloc (numberOfBlocks, sizeof(Name));
     binTranslator->nameTable.numOfVars = numberOfBlocks;

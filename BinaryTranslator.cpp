@@ -606,6 +606,17 @@ static Op_bt* parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_b
     return dest;
 }
 
+static inline void parseOutToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
+{
+    if (node->left)
+    {
+        if (node->left->left)
+        {
+            addCmd (&function->blockArray[function->blockArraySize - 1], {.operation = OP_OUT}, createOpBt(Var_t, {.var = findVar(function->varArray, node->left->left->var.varName)}), NULL, NULL);
+        }
+    }
+}
+
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
     assert (node          != NULL);
@@ -652,6 +663,11 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
 
                 break;
 
+            case BuiltIn_t:
+                    if (node->left->opValue == OP_OUT)
+                        parseOutToIR (node->left, binTranslator, function);
+                    break;
+
             case Unknown:
                 fprintf (stderr, "Writer unknown %s\n", node->Name);
                 assert (0);
@@ -686,6 +702,8 @@ static void parseProgToIR (Node* node, BinaryTranslator* binTranslator)
 
 void startProg (BinaryTranslator* binTranslator)
 {
+    assert (binTranslator != NULL);
+
     mprotect(binTranslator->x86_array, binTranslator->x86_arraySize, PROT_EXEC);
 
     void (*func) (void) = ((void (*) (void)) binTranslator->x86_array);

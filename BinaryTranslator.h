@@ -96,6 +96,7 @@ enum REG_NUM
     RCX = 0x01,
     RDX = 0x02,
     RBX = 0x03,
+    RDI = 0x07,
 };
 
 enum OPCODES_x86 : uint64_t // everything reversed
@@ -136,8 +137,19 @@ enum OPCODES_x86 : uint64_t // everything reversed
 
     CMP_RAX_RBX = 0xD83948,
 
+    MOV_RDI_RAX = 0xC78948,
+    MOV_RCX_RAX = 0xC88948,
+    MOV_RCX_RBX = 0xCB8948,
+
     PUSH_R10 = 0x5241,
+    PUSH_R9  = 0x5141,
+    POP_R9   = 0x5941,
     POP_R10  = 0x5a41,
+    PUSH_RBP = 0x55,
+    PUSH_RSP = 0x54,
+    POP_RBP = 0x5D,
+    POP_RSP = 0x5C,
+
     ADD_R9_IMM = 0xC18149,
     SUB_R9_IMM = 0xE98149,
 };
@@ -156,14 +168,24 @@ enum OPCODE_SIZES
     SIZE_POP_REG     = 1,
 
     SIZE_MOV_REG_REG = 3,
+    SIZE_MOV_RCX_RAX = 3,
+    SIZE_MOV_RCX_RBX = 3,
 
     SIZE_JMP_OP     = 1,
     SIZE_COND_JMP   = 2,
+    SIZE_PUSH_R9    = 2,
+    SIZE_POP_R9    = 2,
     SIZE_PUSH_R10   = 2,
     SIZE_POP_R10    = 2,
     SIZE_RET_OP     = 1,
     SIZE_CALL_OP    = 1,
 
+    SIZE_PUSH_RBP = 1,
+    SIZE_PUSH_RSP = 1,
+    SIZE_POP_RBP = 1,
+    SIZE_POP_RSP = 1,
+
+    SIZE_MOV_RDI_RAX = 3,
     SIZE_ADD_R9_IMM = 3,
     SIZE_SUB_R9_IMM = 3,
     SIZE_MOV_R9_IMM64 = 2,
@@ -195,6 +217,7 @@ void dumpIR (const char* fileName, const BinaryTranslator* binTranslator);
 void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator);
 void firstIteration (BinaryTranslator* binTranslator);
 void dumpBTtable (NameTable nametable);
+void startProg (BinaryTranslator* binTranslator);
 
 //----------------------------------------------------------------------------
 
