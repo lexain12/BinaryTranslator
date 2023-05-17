@@ -1,11 +1,15 @@
-#include "./language/common.h"
-#include "BinaryTranslator.h"
 #include <bits/types/FILE.h>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <cassert>
 #include <sys/types.h>
 
+#include "./language/common.h"
+#include "BinaryTranslator.h"
+
+static size_t calcBlockOffset (BinaryTranslator* binTranslator, char* name);
 static inline void writeCmdIntoArray (BinaryTranslator* binTranslator, x86_cmd cmd);
 
 #define Dumpx86Buf(binTranslator, start, end) \
@@ -37,16 +41,38 @@ static inline void writeCmdIntoArray (BinaryTranslator* binTranslator, x86_cmd c
 
 }
 
-static inline void writeNumIntoArray (BinaryTranslator* binTranslator, int number)
+static inline void writeImm32 (BinaryTranslator* binTranslator, int number)
 {
-    while (number > 0)
+    fprintf (stderr, "writeNumIntoArray %d\n", number);
+    for (int i = 0; i < sizeof(int); ++i)
     {
-        printf ("HERE %x\n", number & 0xFF);
+        printf ("HERE %x\n", (unsigned char) number & 0xFF);
         *(binTranslator->x86_array + binTranslator->BT_ip) = (unsigned char) number & 0xff;
         number >>= 8;
+        binTranslator->BT_ip += 1;
     }
 
-    binTranslator->BT_ip += 4;
+}
+static inline void writeImm64 (BinaryTranslator* binTranslator, uint64_t number)
+{
+    for (int i = 0; i < sizeof(uint64_t); ++i)
+    {
+        printf ("HERE %x\n", (unsigned char) number & 0xFF);
+        *(binTranslator->x86_array + binTranslator->BT_ip) = (unsigned char) number & 0xff;
+        number >>= 8;
+        binTranslator->BT_ip += 1;
+    }
+
+}
+
+static inline void writeRelAddress (BinaryTranslator* binTranslator, size_t curPos, size_t destPos)
+{
+    int icurPos = (int) curPos;
+    int idestPos = (int) destPos;
+    fprintf (stderr, "icurPos %d, idestPos %d\n", icurPos, idestPos);
+    fprintf (stderr, "Num %d\n",idestPos - icurPos - (int) sizeof(int));
+
+    writeImm32(binTranslator, idestPos - icurPos - (int) sizeof(int));
 }
 
 static inline void write_push_reg (BinaryTranslator* binTranslator, REG_NUM reg)
@@ -67,7 +93,6 @@ static inline void write_pop_reg (BinaryTranslator* binTranslator, REG_NUM reg)
         .code = POP_REG + reg,
         .size = SIZE_POP_REG,
     };
-    fprintf (stderr, "ERROR IS HERE %lu\n", cmd.code);
     writeCmdIntoArray (binTranslator, cmd);
 }
 
@@ -80,7 +105,7 @@ static inline void write_push_num (BinaryTranslator* binTranslator, int number)
     };
 
     writeCmdIntoArray (binTranslator, cmd);
-    writeNumIntoArray (binTranslator, number);
+    writeImm32 (binTranslator, number);
 }
 
 static inline void write_mov_mem_imm (BinaryTranslator* binTranslator, size_t offset, int number)
@@ -92,7 +117,7 @@ static inline void write_mov_mem_imm (BinaryTranslator* binTranslator, size_t of
     };
 
     writeCmdIntoArray (binTranslator, cmd);
-    writeNumIntoArray (binTranslator, number);
+    writeImm32 (binTranslator, number);
 }
 
 static inline void write_mov_mem_reg (BinaryTranslator* binTranslator, size_t offset, REG_NUM reg)
@@ -129,8 +154,28 @@ static inline void write_mov_reg_num (BinaryTranslator* binTranslator, REG_NUM r
     };
 
     writeCmdIntoArray (binTranslator, cmd);
-    writeNumIntoArray (binTranslator, number);
+    writeImm32 (binTranslator, number);
 }
+
+static inline void write_jmp (BinaryTranslator* binTranslator, char* destBlock)
+{
+    SimpleCMD(JMP_OP);
+    writeRelAddress(binTranslator, binTranslator->BT_ip, calcBlockOffset (binTranslator, destBlock));
+}
+
+static inline void write_cond_jmp (BinaryTranslator* binTranslator, char* destBlock, OPCODE_MASKS jmpMask)
+{
+    assert (0x83 <= jmpMask && jmpMask <= 0x8f);
+
+    x86_cmd cmd =
+    {
+        .code = COND_JMP + jmpMask * 0x100,
+        .size = SIZE_COND_JMP,
+    };
+    writeCmdIntoArray(binTranslator, cmd);
+    writeRelAddress(binTranslator, binTranslator->BT_ip, calcBlockOffset(binTranslator, destBlock));
+}
+
 
 
 static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Op_bt* op, REG_NUM reg)
@@ -141,6 +186,7 @@ static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTransl
     {
         case Pointer_t:
             fprintf (fileptr, "ja %s\n", op->value.block->name);
+            write_cond_jmp (binTranslator, op->value.block->name, JA_MASK);
             break;
 
         case Var_t:
@@ -228,6 +274,7 @@ static inline void translateIf (FILE* fileptr, BinaryTranslator* binTranslator, 
     if (cmd.operator2)
     {
         fprintf (fileptr, "\t jmp %s\n", cmd.operator2->value.block->name);
+        write_jmp (binTranslator, cmd.operator2->value.block->name);
     }
 }
 
@@ -240,7 +287,7 @@ static inline void translateEq (FILE* fileptr, BinaryTranslator* binTranslator, 
             {
                 case Register:
                     fprintf (fileptr, "mov [r9 - %d], rcx\n", cmd.dest->value.var->offset);
-                    write_mov_reg_mem (binTranslator, cmd.dest->value.var->offset, RCX);
+                    write_mov_mem_reg (binTranslator, cmd.dest->value.var->offset, RCX);
                     break;
 
                 case Stack:
@@ -296,6 +343,7 @@ static inline void translateRet (FILE* fileptr, BinaryTranslator* binTranslator,
 static inline void translateJmp (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
 {
     fprintf (fileptr, "jmp %s\n", cmd.operator1->value.block->name);
+    write_jmp(binTranslator, cmd.operator1->value.block->name);
 }
 
 static inline void translateParamOut (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
@@ -334,7 +382,15 @@ static inline void translateParamIn (FILE* fileptr, BinaryTranslator* binTransla
 
 static inline void translateCall (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
 {
-    fprintf (fileptr, "call %s\n", cmd.operator1->value.block->name);
+    Name* name = findInTable(cmd.operator1->value.block->name, binTranslator->nameTable.data);
+    if (name)
+    {
+        fprintf (fileptr, "call %s\n", cmd.operator1->value.block->name);
+        SimpleCMD(CALL_OP);
+        writeRelAddress (binTranslator, binTranslator->BT_ip, name->position);
+    }
+    else
+        fprintf (fileptr, "call %s\n", cmd.operator1->value.block->name);
 }
 
 static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Block_bt* block)
@@ -385,33 +441,79 @@ static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Bloc
     }
 }
 
+static Name* BTtableAdd (BinaryTranslator* binTranslator, char* name)
+{
+    Name* nameInTable = findInTable (name, binTranslator->nameTable.data);
+
+    if (nameInTable == NULL)
+    {
+        nameInTable = tableAdd (name, binTranslator->nameTable.data);
+    }
+
+    nameInTable->position = binTranslator->BT_ip;
+
+    return nameInTable;
+}
+
+static size_t calcBlockOffset (BinaryTranslator* binTranslator, char* name)
+{
+    Name* nameInTable = findInTable (name, binTranslator->nameTable.data);
+
+    if (nameInTable)
+        return nameInTable->position;
+
+    return 0;
+}
+
+void dumpBTtable (NameTable nametable)
+{
+    for (int i = 0; i < nametable.numOfVars; i++)
+    {
+        fprintf (stderr, "%s offset %lu\n", nametable.data[i].name, nametable.data[i].position);
+    }
+}
+
 static void dumpFunctionToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Func_bt* function)
 {
     fprintf (fileptr, "%s:\n", function->blockArray[0].name);
+    BTtableAdd (binTranslator, function->blockArray[0].name);
+
     fprintf (fileptr, "add r9, %lu\n", (function->varArraySize - function->numberOfTempVar)*8);
+
     SimpleCMD(ADD_R9_IMM);
-    writeNumIntoArray(binTranslator, (function->varArraySize - function->numberOfTempVar)*8);
+    writeImm32(binTranslator, (function->varArraySize - function->numberOfTempVar)*8);
     dumpBlockToAsm (fileptr, binTranslator, &function->blockArray[0]);
 
     for (int i = 1; i < function->blockArraySize; i++)
     {
         fprintf (fileptr, "%s:\n", function->blockArray[i].name);
+        BTtableAdd (binTranslator, function->blockArray[i].name);
+
         dumpBlockToAsm (fileptr, binTranslator, &function->blockArray[i]);
     }
+
     fprintf (fileptr, "sub r9, %lu\n", (function->varArraySize - function->numberOfTempVar)*8);
     SimpleCMD(SUB_R9_IMM);
-    writeNumIntoArray(binTranslator, (function->varArraySize - function->numberOfTempVar)*8);
+
+    writeImm32(binTranslator, (function->varArraySize - function->numberOfTempVar)*8);
     fprintf (fileptr, "ret\n");
     SimpleCMD(RET_OP);
 }
 
-void dumpStart (FILE* fileptr)
+void dumpStart (FILE* fileptr, BinaryTranslator* binTranslator)
 {
     fprintf (fileptr, "section .text\n");
     fprintf (fileptr, "global _start\n");
     fprintf (fileptr, "_start:\n");
     fprintf (fileptr, "lea r9, Buf\n");
+    SimpleCMD(MOV_R9_IMM64);
+    writeImm64(binTranslator, (uint64_t) binTranslator->x86Mem_array);
+
     fprintf (fileptr, "\tcall main\n");
+    SimpleCMD(CALL_OP);
+    writeRelAddress(binTranslator, binTranslator->BT_ip, calcBlockOffset(binTranslator, "main"));
+
+    SimpleCMD(RET_OP);
     fprintf (fileptr, "mov rax, 0x3c\n");
     fprintf (fileptr, "xor rdi, rdi\n");
     fprintf (fileptr, "syscall\n");
@@ -427,7 +529,7 @@ void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator)
 {
     FILE* mainFilePtr = fopen (fileName, "wb");
     FILE* fileptr = fopen ("DebugAsm.s", "w");
-    dumpStart(fileptr);
+    dumpStart(fileptr, binTranslator);
 
     for (int i = 0; i < binTranslator->funcArraySize; i++)
     {
@@ -439,16 +541,20 @@ void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator)
     Dumpx86Buf(binTranslator, 0, binTranslator->BT_ip);
 
     fwrite(binTranslator->x86_array, sizeof(unsigned char), binTranslator->x86_arraySize, mainFilePtr);
+    fclose (mainFilePtr);
+    fclose (fileptr);
 }
 
 void firstIteration (BinaryTranslator* binTranslator)
 {
     size_t ip = 0;
+    size_t numberOfBlocks = 0;
 
     for (int i = 0; i < binTranslator->funcArraySize; i++)
     {
         for (int j = 0; j < binTranslator->funcArray[i].blockArraySize; j ++)
         {
+            numberOfBlocks += binTranslator->funcArray[i].blockArraySize;
             for (int k = 0; k < binTranslator->funcArray[i].blockArray[j].cmdArraySize; k++)
             {
                 ip+=4*8;
@@ -461,6 +567,9 @@ void firstIteration (BinaryTranslator* binTranslator)
     binTranslator->x86_arraySize = ip;
     binTranslator->x86_array = (unsigned char*) calloc (ip, sizeof (char));
     binTranslator->BT_ip = 0;
+    binTranslator->nameTable.data = (Name*) calloc (numberOfBlocks, sizeof(Name));
+    binTranslator->nameTable.numOfVars = numberOfBlocks;
+    assert (binTranslator->nameTable.data != NULL);
 }
 
 void secondIteration (BinaryTranslator* binTranslator)

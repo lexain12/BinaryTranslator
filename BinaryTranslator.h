@@ -78,9 +78,10 @@ struct BinaryTranslator
     size_t   funcArraySize;
     Var_bt*  globalVars;
     size_t   BT_ip;
-    unsigned char* x86_array;
     size_t x86_arraySize;
-    NameTable* nameTable;
+    NameTable nameTable;
+    unsigned char* x86_array;
+    unsigned char x86Mem_array[512];
 };
 
 struct x86_cmd
@@ -117,14 +118,9 @@ enum OPCODES_x86 : uint64_t // everything reversed
     MOV_REG_MEM   = 0xFF008B49,
     MOV_REG_IMM   = 0xB8,
 
-    // mov [r10 + ?], rdi
-    MOV_R10_RDI = 0xBA8949, // this must be followed with uint32 ptr
-
-    SHL_RSI = 0x00E6C148,   // rsi *= 2^(?)
-    //          ^-- how much bites to shift
-
     PUSH_REG = 0x50, //    push/pop r?x
     POP_REG = 0x58,  //              ^--- add 0, 1, 2, 3 to get rax, rcx, rdx or rbx
+    MOV_R9_IMM64 = 0xB949,
 
             //   ^-- by applying bit mask, can get all types f jmp
 
@@ -134,6 +130,7 @@ enum OPCODES_x86 : uint64_t // everything reversed
     RET_OP = 0xC3,      // ret
 
     JMP_OP = 0xE9,      // jmp <32b ptr>
+    COND_JMP = 0x000F,
 
     PUSH_32b = 0x68,
 
@@ -160,13 +157,16 @@ enum OPCODE_SIZES
 
     SIZE_MOV_REG_REG = 3,
 
-    SIZE_JMP        = 1,
+    SIZE_JMP_OP     = 1,
     SIZE_COND_JMP   = 2,
     SIZE_PUSH_R10   = 2,
     SIZE_POP_R10    = 2,
     SIZE_RET_OP     = 1,
+    SIZE_CALL_OP    = 1,
+
     SIZE_ADD_R9_IMM = 3,
     SIZE_SUB_R9_IMM = 3,
+    SIZE_MOV_R9_IMM64 = 2,
 };
 
 
@@ -178,12 +178,12 @@ enum OPCODE_MASKS : uint64_t
     XMM0_MASK = 0x44,   // masks for work with xmm registers
     XMM1_MASK = 0x4c,
 
+    JAE_MASK = 0x83,
     JE_MASK = 0x84,     // Conditional jumps
     JNE_MASK = 0x85,
-    JG_MASK = 0x8f,
-    JAE_MASK = 0x83,
-    JGE_MASK = 0x8d,
     JA_MASK = 0x87,
+    JGE_MASK = 0x8d,
+    JG_MASK = 0x8f,
 
 };
 
@@ -194,6 +194,7 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator);
 void dumpIR (const char* fileName, const BinaryTranslator* binTranslator);
 void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator);
 void firstIteration (BinaryTranslator* binTranslator);
+void dumpBTtable (NameTable nametable);
 
 //----------------------------------------------------------------------------
 

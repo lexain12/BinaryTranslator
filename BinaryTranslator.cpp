@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <sys/mman.h>
 
 #include "BinaryTranslator.h"
 #include "language/common.h"
@@ -502,7 +503,7 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
             if (strcmp ("CALL", node->Name) == 0)
             {
                 fprintf (stderr, "I was here\n");
-                return parseCallToIR(node, binTranslator, function);
+               return parseCallToIR(node, binTranslator, function);
             }
     }
 }
@@ -683,6 +684,15 @@ static void parseProgToIR (Node* node, BinaryTranslator* binTranslator)
 
 }
 
+void startProg (BinaryTranslator* binTranslator)
+{
+    mprotect(binTranslator->x86_array, binTranslator->x86_arraySize, PROT_EXEC);
+
+    void (*func) (void) = ((void (*) (void)) binTranslator->x86_array);
+    func();
+    mprotect(binTranslator->x86_array, binTranslator->x86_arraySize, PROT_READ | PROT_WRITE);
+}
+
 void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
 {
     assert (fileName      != NULL);
@@ -699,6 +709,9 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
     parseProgToIR(tree, binTranslator);
     dumpIR("Dump.txt", binTranslator);
     firstIteration(binTranslator);
+    dumpIRToAsm("asm.txt", binTranslator);
+    binTranslator->BT_ip = 0;
+    dumpBTtable(binTranslator->nameTable);
     dumpIRToAsm("asm.txt", binTranslator);
 }
 
