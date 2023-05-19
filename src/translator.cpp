@@ -98,9 +98,9 @@ static inline void write_push_num (BinaryTranslator* binTranslator, int number)
 static inline void write_mov_mem_imm (BinaryTranslator* binTranslator, size_t offset, int number)
 {
 
-    x86_cmd cmd = 
+    x86_cmd cmd =
     {
-        .code = MOV_MEM_IMM - (offset - 1) << BYTE(3),
+        .code = MOV_MEM_IMM - ((offset - 1) << BYTE(3)),
         .size = SIZE_MOV_MEM_IMM ,
     };
     writeCmdIntoArray (binTranslator, cmd);
@@ -112,7 +112,7 @@ static inline void write_mov_mem_reg (BinaryTranslator* binTranslator, size_t of
     uint64_t regMasks[] = {MOV_RAX_MASK, MOV_RCX_MASK, 0, MOV_RBX_MASK};
     x86_cmd cmd =
     {
-        .code = MOV_MEM_REG + regMasks[reg] * 0x10000 - (offset - 1) << BYTE(3), // offset - 1 because of universal cmd
+        .code = MOV_MEM_REG + regMasks[reg] * 0x10000 - ((offset - 1) << BYTE(3)), // offset - 1 because of universal cmd
         .size = SIZE_MOV_MEM_IMM ,
     };
 
@@ -124,7 +124,7 @@ static inline void write_mov_reg_mem (BinaryTranslator* binTranslator, size_t of
     int regMasks[] = {MOV_RAX_MASK, MOV_RCX_MASK, 0, MOV_RBX_MASK};
     x86_cmd cmd =
     {
-        .code = MOV_REG_MEM + regMasks[reg] * 0x10000 - (offset - 1) << BYTE(3),
+        .code = MOV_REG_MEM + regMasks[reg] * 0x10000 - ((offset - 1) << BYTE(3)),
         .size = SIZE_MOV_MEM_IMM ,
     };
 
@@ -155,7 +155,7 @@ static inline void write_cond_jmp (BinaryTranslator* binTranslator, char* destBl
 
     x86_cmd cmd =
     {
-        .code = COND_JMP + jmpMask BYTE(1),
+        .code = COND_JMP + (jmpMask << BYTE(1)),
         .size = SIZE_COND_JMP,
     };
     writeCmdIntoArray(binTranslator, cmd);

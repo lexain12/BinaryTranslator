@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <cstdint>
 
-#include "./language/common.h"
+#include "../language/common.h"
 
 struct Block_bt;
 struct Op_bt;  // operator type
@@ -118,7 +118,7 @@ enum OPCODES_x86 : uint64_t // everything reversed
     //                mov [r9 + offset], rax
     MOV_MEM_REG   = 0xFF008949,
     //                ^ (ff - offset) to make [r9 - offset]
-    
+
     MOV_REG_MEM   = 0xFF008B49,
     MOV_REG_IMM   = 0xB8,
 

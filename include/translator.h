@@ -1,4 +1,6 @@
 #pragma once
+#include "./BinaryTranslator.h"
+
 #define Dumpx86Buf(binTranslator, start, end) \
     printf ("Called from %s\n", __PRETTY_FUNCTION__);\
     dumpx86Buf(binTranslator, start, end);

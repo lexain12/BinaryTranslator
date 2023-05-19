@@ -5,19 +5,20 @@
 #include <cstring>
 #include <sys/mman.h>
 
-#include "BinaryTranslator.h"
-#include "language/common.h"
-#include "./language/readerLib/functions.h"
-#include "translator.h"
+#include "../include/BinaryTranslator.h"
+#include "../language/common.h"
+#include "../language/readerLib/functions.h"
+#include "../include/translator.h"
 
 extern const char* FullOpArray[];
 
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function);
 static Op_bt* parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function);
 
+static size_t NumberOfTempVars = 0;
+
 // DUMPS
 //----------------------------------------
-static size_t NumberOfTempVars = 0;
 
 static void printOperand (FILE* fileptr, const Op_bt* op)
 {
@@ -101,7 +102,6 @@ static void dumpIRFuncion (FILE* fileptr, const Func_bt function)
         dumpIRBlock(fileptr, function.blockArray[i]);
     }
     fprintf(fileptr, "}\n\n");
-
 }
 
 void dumpIR (const char* fileName, const BinaryTranslator* binTranslator)
@@ -110,8 +110,9 @@ void dumpIR (const char* fileName, const BinaryTranslator* binTranslator)
     assert (binTranslator != NULL);
 
     FILE* fileptr = fopen (fileName, "w");
-    setvbuf(fileptr, NULL, _IONBF, 0);
     assert (fileptr != NULL);
+
+    setvbuf(fileptr, NULL, _IONBF, 0);
 
     if (binTranslator->globalVars != NULL)
     {
@@ -121,6 +122,7 @@ void dumpIR (const char* fileName, const BinaryTranslator* binTranslator)
             fprintf (fileptr, "%s\n", binTranslator->globalVars[i].name);
         }
     }
+
     fprintf(fileptr, "funcArraySize = %d\n", binTranslator->funcArraySize);
     fprintf (fileptr, "Functions:\n");
     for (int i = 0; i < binTranslator->funcArraySize; i++)
@@ -180,8 +182,10 @@ static size_t countNumberOfVarsInFunc (Node* node, size_t numOfVars)
 
     if (node->type == Key_t)
         numOfVars += 1;
+
     if (node->type == OP_t)
         numOfVars += 1;
+
     if (node->type == Var_t)
         numOfVars += 1;
 
@@ -322,11 +326,11 @@ static Block_bt* addBlock (Func_bt* function, size_t numOfCmd, char* name)
 
 static Block_bt* findFunctionBlock (BinaryTranslator* binTranslator, char* name)
 {
-    fprintf (stderr, "Finding function %s \n", name);
-    fprintf (stderr, "func array size %lu\n", binTranslator->funcArraySize);
+    assert (binTranslator != NULL);
+    assert (name          != NULL);
+
     for (size_t i = 0; i < binTranslator->funcArraySize; i++)
     {
-        fprintf (stderr, "Cur function {%s}\n", binTranslator->funcArray[i].name);
         if (strcmp (name, binTranslator->funcArray[i].name) == 0)
         {
             return binTranslator->funcArray[i].blockArray;
@@ -380,6 +384,10 @@ static void parseFuncParams (Node* node, BinaryTranslator* binTranslator, Func_b
 
 static void parseFuncHead (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
+    assert (node != NULL);
+    assert (binTranslator != NULL);
+    assert (function != NULL);
+
     Node* leftNode = node->left;
     assert(leftNode != NULL);
 
@@ -397,8 +405,9 @@ static void parseFuncHead (Node* node, BinaryTranslator* binTranslator, Func_bt*
 
 void parseFuncToIR (Node* node, BinaryTranslator* binTranslator)
 {
+    assert (node != NULL);
+    assert (binTranslator != NULL);
 
-    assert (node != nullptr);
     Func_bt* function = initFunction(countNumberOfVarsInFunc(node, 0) + 1, countNumberOfBlocks(node, 0) + 1); // +1 for NULL element
     NumberOfTempVars = 0;
 
@@ -495,13 +504,15 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
 }
 #undef CMD
 
-#if 1
 static void parseIfToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
+    assert (node != NULL);
+    assert (function != NULL);
+    assert (binTranslator != NULL);
+
     static int numberOfIf = 0;
     int curNumberOfIf = numberOfIf;
     numberOfIf += 1;
-
 
     char buf[15] = "";
     Block_bt* ifBlock    = NULL;
@@ -545,10 +556,13 @@ static void parseIfToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
     }
 
 }
-#endif
 
 static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
+    assert (node != NULL);
+    assert (function != NULL);
+    assert (binTranslator != NULL);
+
     if (node->left)
     {
         switch (node->left->type)
@@ -563,6 +577,7 @@ static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt
 
             case OP_t:
                 addCmd(&function->blockArray[function->blockArraySize - 1], {.operation = OP_PARIN}, parseExpToIR(node->left, binTranslator, function), NULL, NULL);
+                break;
         }
     }
 
@@ -572,6 +587,9 @@ static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt
 
 static Op_bt* parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
+    assert (node != NULL);
+    assert (function != NULL);
+    assert (binTranslator != NULL);
 
     Node* curNode = node->left;
 
@@ -633,13 +651,11 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
                 if (strcmp (node->left->Name, "CALL") == 0)
                     parseCallToIR (node->left, binTranslator, function);
 
-
             case Key_t:
                 if (strcmp (node->left->Name, "ST") == 0)
                     parseStToIR (node->left, binTranslator, function);
 
                 else if (strcmp (node->left->Name, "RET") == 0)
-//                    parseStToIR (node->left, binTranslator, function);
                     addCmd(&function->blockArray[function->blockArraySize - 1], {(unsigned int) OP_RET, 0, 0, 0}, parseExpToIR(node->left->left, binTranslator, function),
                                         NULL, NULL);
                 else if (strcmp (node->left->Name, "IF") == 0)
@@ -718,11 +734,6 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
 
     parseProgToIR(tree, binTranslator);
     dumpIR("Dump.txt", binTranslator);
-    firstIteration(binTranslator);
-    dumpIRToAsm("asm.txt", binTranslator);
-    binTranslator->BT_ip = 0;
-    dumpBTtable(binTranslator->nameTable);
-    dumpIRToAsm("asm.txt", binTranslator);
 }
 
 //----------------------------------------
