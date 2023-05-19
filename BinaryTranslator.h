@@ -1,3 +1,4 @@
+#pragma once
 #include <cstddef>
 #include <stdio.h>
 #include <cstdint>
@@ -122,8 +123,9 @@ enum OPCODES_x86 : uint64_t // everything reversed
     PUSH_REG = 0x50, //    push/pop r?x
     POP_REG = 0x58,  //              ^--- add 0, 1, 2, 3 to get rax, rcx, rdx or rbx
     MOV_R9_IMM64 = 0xB949,
-
-            //   ^-- by applying bit mask, can get all types f jmp
+    MOV_R11_IMM64 = 0xBB49,
+    MOV_R12_IMM64 = 0xBC49,
+    MOV_R14_IMM64 = 0xBE49,
 
 // Constant expressions, no need for bit masks
 
@@ -190,6 +192,9 @@ enum OPCODE_SIZES
     SIZE_ADD_R9_IMM = 3,
     SIZE_SUB_R9_IMM = 3,
     SIZE_MOV_R9_IMM64 = 2,
+    SIZE_MOV_R11_IMM64 = 2,
+    SIZE_MOV_R12_IMM64 = 2,
+    SIZE_MOV_R14_IMM64 = 2,
     SIZE_MOV_RDI_R9   = 3,
 };
 

@@ -22,11 +22,7 @@ static size_t NumberOfTempVars = 0;
 
 static void printOperand (FILE* fileptr, const Op_bt* op)
 {
-    fprintf (stderr, "HERE\n");
     assert (op != NULL);
-    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
-    fprintf (stderr, "%d\n", op->type);
-    fprintf (stderr, "HERE\n");
 
     switch (op->type)
     {
@@ -84,7 +80,6 @@ static void dumpIRBlock (FILE* fileptr, const Block_bt block)
 
 static void dumpIRFuncion (FILE* fileptr, const Func_bt function)
 {
-    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert (fileptr != NULL);
     assert (function.blockArray != NULL);
     assert (function.varArray != NULL);
@@ -112,7 +107,6 @@ static void dumpIRFuncion (FILE* fileptr, const Func_bt function)
 
 void dumpIR (const char* fileName, const BinaryTranslator* binTranslator)
 {
-    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert (fileName      != NULL);
     assert (binTranslator != NULL);
 
@@ -164,7 +158,6 @@ static size_t countNumberOfBlocks (Node* node, size_t numOfBlocks)
 
 static size_t countNumberOfCmdInFunc (Node* node, size_t numOfCmd)
 {
-    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert (node != NULL);
 
     if (node->type == OP_t)
@@ -184,7 +177,6 @@ static size_t countNumberOfCmdInFunc (Node* node, size_t numOfCmd)
 
 static size_t countNumberOfVarsInFunc (Node* node, size_t numOfVars)
 {
-    printf ("%s\n", __PRETTY_FUNCTION__);
     assert (node != NULL);
 
     if (node->type == Key_t)
@@ -243,11 +235,9 @@ static Var_bt* findVar (Var_bt* varArray, char* name)
 {
     assert (name != nullptr);
     assert (varArray != nullptr);
-    fprintf (stderr, "%s\n", varArray[0].name);
 
     for (int i = 0; varArray[i].name != NULL; i++)
     {
-        fprintf (stderr, "HERE {%s} {%s}\n", varArray[i].name, name);
         if (strcmp (varArray[i].name, name) == 0)
             return &varArray[i];
     }
@@ -298,7 +288,6 @@ static Cmd_bt* addCmd (Block_bt* block, OpCode_bt opCode, Op_bt* op1, Op_bt* op2
     if (block->cmdArraySize >= block->cmdArrayCapacity)
     {
         block->cmdArray = (Cmd_bt*) realloc(block->cmdArray, block->cmdArrayCapacity * 2 * sizeof (*block->cmdArray));
-        fprintf (stderr, "cmdArray size %lu\n", block->cmdArrayCapacity);
         assert (block->cmdArray != NULL);
         block->cmdArrayCapacity *= 2;
     }
@@ -376,7 +365,6 @@ static Func_bt* initFunction (size_t numOfVars, size_t numOfBlocks)
 
 static void parseFuncParams (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
-    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert (node          != NULL);
     assert (binTranslator != NULL);
     assert (function      != NULL);
@@ -394,7 +382,6 @@ static void parseFuncParams (Node* node, BinaryTranslator* binTranslator, Func_b
 static void parseFuncHead (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
     Node* leftNode = node->left;
-    fprintf(stderr, "%s\n", __PRETTY_FUNCTION__);
     assert(leftNode != NULL);
 
     if (node->type == Func_t)
@@ -563,9 +550,6 @@ static void parseIfToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
 
 static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
-    fprintf (stderr, "parsing \n");
-    fprintf (stderr, "%lu %lu\n", function->blockArraySize, function->blockArrayCapacity);
-
     if (node->left)
     {
         switch (node->left->type)
@@ -574,9 +558,7 @@ static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt
                 addCmd (&function->blockArray[function->blockArraySize - 1], {.operation = OP_PARIN}, createOpBt(Num_t, {.num = (int) node->left->numValue}), NULL, NULL);
                 break;
             case Var_t:
-                fprintf (stderr, "%s\n", node->left->var.varName);
                 findVar (function->varArray, node->left->var.varName);
-                fprintf (stderr, "%s\n", findVar(function->varArray, node->left->var.varName)->name);
                 addCmd (&function->blockArray[function->blockArraySize - 1], {.operation = OP_PARIN}, createOpBt(Var_t, {.var = findVar (function->varArray, node->left->var.varName)}), NULL, NULL);
                 break;
 
@@ -593,12 +575,10 @@ static Op_bt* parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_b
 {
 
     Node* curNode = node->left;
-    fprintf (stderr, "Type node %d, node name %s\n", curNode->type, curNode->Name);
 
     if (curNode->left)
     {
         parseCallParam(curNode->left, binTranslator, function);
-        fprintf (stderr, "Parsed param\n");
     }
 
     Op_bt* dest = createOpBt(Var_t, {.var = addTempVar(function->varArray, &function->varArraySize, Register)});

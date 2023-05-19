@@ -4,10 +4,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
+#include <cstring>
 #include <sys/types.h>
 
 #include "./language/common.h"
 #include "BinaryTranslator.h"
+
+extern Configuration Config;
 
 static size_t calcBlockOffset (BinaryTranslator* binTranslator, char* name);
 static inline void writeCmdIntoArray (BinaryTranslator* binTranslator, x86_cmd cmd);
@@ -35,7 +38,6 @@ void dumpx86Buf (BinaryTranslator* binTranslator, size_t start, size_t end)
 static inline void writeCmdIntoArray (BinaryTranslator* binTranslator, x86_cmd cmd)
 {
 
-    fprintf (stderr, "ERROR CHECKING %lu %lu\n", cmd.size, cmd.code);
     *(uint64_t*)(binTranslator->x86_array + binTranslator->BT_ip) = cmd.code;
     binTranslator->BT_ip += cmd.size;
 
@@ -43,10 +45,8 @@ static inline void writeCmdIntoArray (BinaryTranslator* binTranslator, x86_cmd c
 
 static inline void writeImm32 (BinaryTranslator* binTranslator, int number)
 {
-    fprintf (stderr, "writeNumIntoArray %d\n", number);
     for (int i = 0; i < sizeof(int); ++i)
     {
-        printf ("HERE %x\n", (unsigned char) number & 0xFF);
         *(binTranslator->x86_array + binTranslator->BT_ip) = (unsigned char) number & 0xff;
         number >>= 8;
         binTranslator->BT_ip += 1;
@@ -57,7 +57,6 @@ static inline void writeImm64 (BinaryTranslator* binTranslator, uint64_t number)
 {
     for (int i = 0; i < sizeof(uint64_t); ++i)
     {
-        printf ("HERE %x\n", (unsigned char) number & 0xFF);
         *(binTranslator->x86_array + binTranslator->BT_ip) = (unsigned char) number & 0xff;
         number >>= 8;
         binTranslator->BT_ip += 1;
@@ -69,8 +68,6 @@ static inline void writeRelAddress (BinaryTranslator* binTranslator, size_t curP
 {
     int icurPos = (int) curPos;
     int idestPos = (int) destPos;
-    fprintf (stderr, "icurPos %d, idestPos %d\n", icurPos, idestPos);
-    fprintf (stderr, "Num %d\n",idestPos - icurPos - (int) sizeof(int));
 
     writeImm32(binTranslator, idestPos - icurPos - (int) sizeof(int));
 }
@@ -122,7 +119,6 @@ static inline void write_mov_mem_imm (BinaryTranslator* binTranslator, size_t of
 
 static inline void write_mov_mem_reg (BinaryTranslator* binTranslator, size_t offset, REG_NUM reg)
 {
-    fprintf (stderr, "%d\n", reg);
     uint64_t regMasks[] = {MOV_RAX_MASK, MOV_RCX_MASK, 0, MOV_RBX_MASK};
     x86_cmd cmd =
     {
@@ -425,7 +421,8 @@ static void translateOut (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt
     fprintf (fileptr, "\t call printf\n");
     SimpleCMD(CALL_OP);
 
-    writeRelAddress(binTranslator, (uint64_t) binTranslator->x86_array + binTranslator->BT_ip, (uint64_t) &myPrint);
+    fprintf(stderr, "x86 array %lu\n", binTranslator->x86_arraySize);
+    writeRelAddress(binTranslator, binTranslator->BT_ip , binTranslator->x86_arraySize);
 
     SimpleCMD(POP_RSP);
     SimpleCMD(POP_RBP);
@@ -447,7 +444,8 @@ static inline void translateIn (FILE* fileptr, BinaryTranslator* binTranslator, 
 
     SimpleCMD(MOV_RDI_R9);
     SimpleCMD(CALL_OP);
-    writeRelAddress(binTranslator, (uint64_t) binTranslator->x86_array + binTranslator->BT_ip, (uint64_t) &myScanf);
+    fprintf(stderr, "x86 array %lu\n", binTranslator->x86_arraySize);
+    writeRelAddress(binTranslator, binTranslator->BT_ip, binTranslator->x86_arraySize + Config.sizeOfPrintf);
 
     SimpleCMD(POP_RSP);
     SimpleCMD(POP_RBP);
@@ -574,17 +572,29 @@ void dumpStart (FILE* fileptr, BinaryTranslator* binTranslator)
     fprintf (fileptr, "global _start\n");
     fprintf (fileptr, "_start:\n");
     fprintf (fileptr, "lea r9, Buf\n");
+    SimpleCMD(MOV_R11_IMM64);
+    writeImm64(binTranslator, 0x400078 + binTranslator->x86_arraySize + Config.sizeOfPrintf - 5);
+
+    SimpleCMD(MOV_R12_IMM64);
+    writeImm64(binTranslator, 0x400078 + binTranslator->x86_arraySize + Config.sizeOfPrintf - 10); //Buf for printf has sizeof 5 bytes
+                                                                            //
+    SimpleCMD(MOV_R14_IMM64);
+    writeImm64(binTranslator, 0x400078 + binTranslator->x86_arraySize + Config.sizeOfPrintf + Config.sizeOfScanf - 16); //Buf for printf has sizeof 5 bytes
+
     SimpleCMD(MOV_R9_IMM64);
-    writeImm64(binTranslator, (uint64_t) binTranslator->x86Mem_array);
+    writeImm64(binTranslator, 0x400078 + binTranslator->x86_arraySize + Config.sizeOfPrintf + Config.sizeOfScanf);
 
     fprintf (fileptr, "\tcall main\n");
     SimpleCMD(CALL_OP);
     writeRelAddress(binTranslator, binTranslator->BT_ip, calcBlockOffset(binTranslator, "main"));
 
-    SimpleCMD(RET_OP);
     fprintf (fileptr, "mov rax, 0x3c\n");
     fprintf (fileptr, "xor rdi, rdi\n");
     fprintf (fileptr, "syscall\n");
+
+    unsigned char codeToExit[] = { 0x48, 0xc7, 0xc0, 0x3c, 0x00, 0x00, 0x00, 0x48, 0x31, 0xff, 0x0f, 0x05};
+    memcpy(binTranslator->x86_array + binTranslator->BT_ip, codeToExit, sizeof(codeToExit));
+    binTranslator->BT_ip += sizeof(codeToExit);
 }
 
 void dumpEnd (FILE* fileptr)

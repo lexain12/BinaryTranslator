@@ -24,7 +24,7 @@ CXXFLAGS ?= -ggdb3 -std=c++17 -Wall -Wextra -Weffc++ 				   \
 			-fno-omit-frame-pointer -fPIE 	   \
 
 all: main.cpp ./language/Analyzer/WriteIntoDb.cpp
-	$(CXX) $(CXXFLAGS) main.cpp ./language/Analyzer/WriteIntoDb.cpp ./language/Analyzer/utils.cpp ./language/utils/src/ErrorHandlerLib.cpp ./language/utils/src/consoleColorLib.cpp ./language/Analyzer/tokenizer.cpp ./BinaryTranslator.cpp translator.cpp ./language/readerLib/functions.cpp ./language/logs/LogLib.cpp -o binTranslate
+	$(CXX) $(CXXFLAGS) main.cpp ./language/Analyzer/WriteIntoDb.cpp ./language/Analyzer/utils.cpp ./language/utils/src/ErrorHandlerLib.cpp ./language/utils/src/consoleColorLib.cpp ./language/Analyzer/tokenizer.cpp ./BinaryTranslator.cpp translator.cpp ./language/readerLib/functions.cpp ./language/logs/LogLib.cpp ./elfFileGen.cpp -o binTranslate
 
 
 
