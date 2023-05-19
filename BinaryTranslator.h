@@ -105,6 +105,7 @@ enum OPCODES_x86 : uint64_t // everything reversed
 
 // Watch OPCODE_MASKS if you want to construct one of the following cmds.
 // ATTENTION: all opcodes are written in reverse order.
+
     SUB_RAX_RBX = 0xD82948,
     ADD_RAX_RBX = 0xD80148,
     MUL_RBX     = 0xE3F748,
@@ -116,18 +117,20 @@ enum OPCODES_x86 : uint64_t // everything reversed
     //                ^ -offset
     //                mov [r9 + offset], rax
     MOV_MEM_REG   = 0xFF008949,
-    //                ^ ff - offset to make [r9 - offset]
+    //                ^ (ff - offset) to make [r9 - offset]
+    
     MOV_REG_MEM   = 0xFF008B49,
     MOV_REG_IMM   = 0xB8,
 
     PUSH_REG = 0x50, //    push/pop r?x
     POP_REG = 0x58,  //              ^--- add 0, 1, 2, 3 to get rax, rcx, rdx or rbx
-    MOV_R9_IMM64 = 0xB949,
+		     //
+// Constant expressions, no need for bit masks
+
+    MOV_R9_IMM64  = 0xB949,
     MOV_R11_IMM64 = 0xBB49,
     MOV_R12_IMM64 = 0xBC49,
     MOV_R14_IMM64 = 0xBE49,
-
-// Constant expressions, no need for bit masks
 
     CALL_OP = 0xE8,     // call <32b ptr>
     RET_OP = 0xC3,      // ret

@@ -8,12 +8,11 @@
 #include "BinaryTranslator.h"
 #include "language/common.h"
 #include "./language/readerLib/functions.h"
+#include "translator.h"
 
 extern const char* FullOpArray[];
 
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function);
-void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator);
-void firstIteration (BinaryTranslator* binTranslator);
 static Op_bt* parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function);
 
 // DUMPS

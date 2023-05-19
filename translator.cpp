@@ -9,17 +9,12 @@
 
 #include "./language/common.h"
 #include "BinaryTranslator.h"
+#include "translator.h"
 
 extern Configuration Config;
 
 static size_t calcBlockOffset (BinaryTranslator* binTranslator, char* name);
 static inline void writeCmdIntoArray (BinaryTranslator* binTranslator, x86_cmd cmd);
-
-#define Dumpx86Buf(binTranslator, start, end) \
-    printf ("Called from %s\n", __PRETTY_FUNCTION__);\
-    dumpx86Buf(binTranslator, start, end);
-
-#define SimpleCMD(name) writeCmdIntoArray( binTranslator, {.code = name, .size = SIZE_##name});
 
 void dumpx86Buf (BinaryTranslator* binTranslator, size_t start, size_t end)
 {
@@ -37,10 +32,8 @@ void dumpx86Buf (BinaryTranslator* binTranslator, size_t start, size_t end)
 
 static inline void writeCmdIntoArray (BinaryTranslator* binTranslator, x86_cmd cmd)
 {
-
     *(uint64_t*)(binTranslator->x86_array + binTranslator->BT_ip) = cmd.code;
     binTranslator->BT_ip += cmd.size;
-
 }
 
 static inline void writeImm32 (BinaryTranslator* binTranslator, int number)
@@ -51,8 +44,8 @@ static inline void writeImm32 (BinaryTranslator* binTranslator, int number)
         number >>= 8;
         binTranslator->BT_ip += 1;
     }
-
 }
+
 static inline void writeImm64 (BinaryTranslator* binTranslator, uint64_t number)
 {
     for (int i = 0; i < sizeof(uint64_t); ++i)
@@ -61,7 +54,6 @@ static inline void writeImm64 (BinaryTranslator* binTranslator, uint64_t number)
         number >>= 8;
         binTranslator->BT_ip += 1;
     }
-
 }
 
 static inline void writeRelAddress (BinaryTranslator* binTranslator, size_t curPos, size_t destPos)
@@ -79,7 +71,6 @@ static inline void write_push_reg (BinaryTranslator* binTranslator, REG_NUM reg)
         .code = PUSH_REG + reg,
         .size = SIZE_PUSH_REG,
     };
-
     writeCmdIntoArray (binTranslator, cmd);
 }
 
@@ -100,7 +91,6 @@ static inline void write_push_num (BinaryTranslator* binTranslator, int number)
         .code = PUSH_32b,
         .size = SIZE_PUSH_32b,
     };
-
     writeCmdIntoArray (binTranslator, cmd);
     writeImm32 (binTranslator, number);
 }
@@ -108,11 +98,11 @@ static inline void write_push_num (BinaryTranslator* binTranslator, int number)
 static inline void write_mov_mem_imm (BinaryTranslator* binTranslator, size_t offset, int number)
 {
 
-    x86_cmd cmd = {
-        .code = MOV_MEM_IMM - (offset - 1) * 0x1000000,
+    x86_cmd cmd = 
+    {
+        .code = MOV_MEM_IMM - (offset - 1) << BYTE(3),
         .size = SIZE_MOV_MEM_IMM ,
     };
-
     writeCmdIntoArray (binTranslator, cmd);
     writeImm32 (binTranslator, number);
 }
@@ -122,7 +112,7 @@ static inline void write_mov_mem_reg (BinaryTranslator* binTranslator, size_t of
     uint64_t regMasks[] = {MOV_RAX_MASK, MOV_RCX_MASK, 0, MOV_RBX_MASK};
     x86_cmd cmd =
     {
-        .code = MOV_MEM_REG + regMasks[reg] * 0x10000 - (offset - 1) * 0x1000000, // offset - 1 because of universal cmd
+        .code = MOV_MEM_REG + regMasks[reg] * 0x10000 - (offset - 1) << BYTE(3), // offset - 1 because of universal cmd
         .size = SIZE_MOV_MEM_IMM ,
     };
 
@@ -134,7 +124,7 @@ static inline void write_mov_reg_mem (BinaryTranslator* binTranslator, size_t of
     int regMasks[] = {MOV_RAX_MASK, MOV_RCX_MASK, 0, MOV_RBX_MASK};
     x86_cmd cmd =
     {
-        .code = MOV_REG_MEM + regMasks[reg] * 0x10000 - (offset - 1) * 0x1000000,
+        .code = MOV_REG_MEM + regMasks[reg] * 0x10000 - (offset - 1) << BYTE(3),
         .size = SIZE_MOV_MEM_IMM ,
     };
 
@@ -165,14 +155,12 @@ static inline void write_cond_jmp (BinaryTranslator* binTranslator, char* destBl
 
     x86_cmd cmd =
     {
-        .code = COND_JMP + jmpMask * 0x100,
+        .code = COND_JMP + jmpMask BYTE(1),
         .size = SIZE_COND_JMP,
     };
     writeCmdIntoArray(binTranslator, cmd);
     writeRelAddress(binTranslator, binTranslator->BT_ip, calcBlockOffset(binTranslator, destBlock));
 }
-
-
 
 static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Op_bt* op, REG_NUM reg)
 {
@@ -335,7 +323,6 @@ static inline void translateRet (FILE* fileptr, BinaryTranslator* binTranslator,
                     fprintf (fileptr, "mov rcx, [r9 - %d]\n", cmd.operator1->value.var->offset);
                     write_mov_reg_mem (binTranslator, cmd.operator1->value.var->offset, RCX);
                     break;
-
             }
             break;
 
@@ -381,7 +368,6 @@ static inline void translateParamIn (FILE* fileptr, BinaryTranslator* binTransla
                 fprintf (fileptr, "push rax\n" );
                 write_push_reg (binTranslator, RAX);
             }
-
             break;
     }
 }
@@ -566,7 +552,7 @@ static void dumpFunctionToAsm (FILE* fileptr, BinaryTranslator* binTranslator, F
     SimpleCMD(RET_OP);
 }
 
-void dumpStart (FILE* fileptr, BinaryTranslator* binTranslator)
+static void dumpStart (FILE* fileptr, BinaryTranslator* binTranslator)
 {
     fprintf (fileptr, "section .text\n");
     fprintf (fileptr, "global _start\n");
@@ -597,7 +583,7 @@ void dumpStart (FILE* fileptr, BinaryTranslator* binTranslator)
     binTranslator->BT_ip += sizeof(codeToExit);
 }
 
-void dumpEnd (FILE* fileptr)
+static void dumpEnd (FILE* fileptr)
 {
     fprintf (fileptr, "section .data\n");
     fprintf (fileptr, "Buf: times 512 db 0\n");
@@ -646,11 +632,6 @@ void firstIteration (BinaryTranslator* binTranslator)
     binTranslator->x86_array = (unsigned char*) aligned_alloc(4096, sizeof(char*) * ip);
     binTranslator->BT_ip = 0;
     binTranslator->nameTable.data = (Name*) calloc (numberOfBlocks, sizeof(Name));
-    binTranslator->nameTable.numOfVars = numberOfBlocks;
     assert (binTranslator->nameTable.data != NULL);
-}
-
-void secondIteration (BinaryTranslator* binTranslator)
-{
-
+    binTranslator->nameTable.numOfVars = numberOfBlocks;
 }
