@@ -617,6 +617,17 @@ static inline void parseOutToIR (Node* node, BinaryTranslator* binTranslator, Fu
     }
 }
 
+static inline void parseInToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
+{
+    if (node->left)
+    {
+        if (node->left->left)
+        {
+            addCmd (&function->blockArray[function->blockArraySize - 1], {.operation = OP_IN},  NULL, NULL, createOpBt(Var_t, {.var = findVar(function->varArray, node->left->left->var.varName)}));
+        }
+    }
+}
+
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function)
 {
     assert (node          != NULL);
@@ -666,6 +677,8 @@ static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* f
             case BuiltIn_t:
                     if (node->left->opValue == OP_OUT)
                         parseOutToIR (node->left, binTranslator, function);
+                    else if (node->left->opValue == OP_IN)
+                        parseInToIR (node->left, binTranslator, function);
                     break;
 
             case Unknown:

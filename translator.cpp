@@ -408,6 +408,11 @@ static void myPrint (int num)
     printf ("OUT: %d\n", num);
 }
 
+static void myScanf (int* num)
+{
+    scanf ("%d", num);
+}
+
 static void translateOut (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
 {
     SimpleCMD(PUSH_R9);
@@ -424,10 +429,30 @@ static void translateOut (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt
 
     SimpleCMD(POP_RSP);
     SimpleCMD(POP_RBP);
-
     SimpleCMD(POP_R10);
     SimpleCMD(POP_R9);
 
+
+}
+
+static inline void translateIn (FILE* fileptr, BinaryTranslator* binTranslator, Cmd_bt cmd)
+{
+    SimpleCMD(PUSH_R9);
+    SimpleCMD(PUSH_R10);
+    SimpleCMD(PUSH_RBP);
+    SimpleCMD(PUSH_RSP);
+
+    SimpleCMD(SUB_R9_IMM);
+    writeImm32(binTranslator, cmd.dest->value.var->offset);
+
+    SimpleCMD(MOV_RDI_R9);
+    SimpleCMD(CALL_OP);
+    writeRelAddress(binTranslator, (uint64_t) binTranslator->x86_array + binTranslator->BT_ip, (uint64_t) &myScanf);
+
+    SimpleCMD(POP_RSP);
+    SimpleCMD(POP_RBP);
+    SimpleCMD(POP_R10);
+    SimpleCMD(POP_R9);
 }
 
 static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Block_bt* block)
@@ -476,6 +501,9 @@ static void dumpBlockToAsm (FILE* fileptr, BinaryTranslator* binTranslator, Bloc
                 break;
             case OP_OUT:
                 translateOut (fileptr, binTranslator, cmd);
+                break;
+            case OP_IN:
+                translateIn (fileptr, binTranslator, cmd);
                 break;
         }
     }

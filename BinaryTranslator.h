@@ -152,6 +152,7 @@ enum OPCODES_x86 : uint64_t // everything reversed
 
     ADD_R9_IMM = 0xC18149,
     SUB_R9_IMM = 0xE98149,
+    MOV_RDI_R9 = 0xCF894C,
 };
 
 enum OPCODE_SIZES
@@ -189,6 +190,7 @@ enum OPCODE_SIZES
     SIZE_ADD_R9_IMM = 3,
     SIZE_SUB_R9_IMM = 3,
     SIZE_MOV_R9_IMM64 = 2,
+    SIZE_MOV_RDI_R9   = 3,
 };
 
 
