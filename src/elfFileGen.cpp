@@ -70,7 +70,7 @@ void linkMyPrintf (FILE* fileptr)
     assert (buf != nullptr);
 
 
-    fread (buf, sizeOfFile, sizeOfFile, printfPtr);
+    fread (buf, sizeof (unsigned char), sizeOfFile, printfPtr);
     fclose (printfPtr);
     fwrite (buf, sizeof (unsigned char), sizeOfFile, fileptr);
 
@@ -85,7 +85,7 @@ void linkMyScanf (FILE* fileptr)
     unsigned char* buf = (unsigned char*) calloc(sizeOfFile, sizeof(unsigned char));
     assert (buf != nullptr);
 
-    fread (buf, sizeOfFile, sizeOfFile, scanfPtr);
+    fread (buf, sizeof (unsigned char), sizeOfFile, scanfPtr);
     fclose (scanfPtr);
     fwrite (buf, sizeof (unsigned char), sizeOfFile, fileptr);
 
