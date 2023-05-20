@@ -746,4 +746,36 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
 
 //----------------------------------------
 
+void IRdtor (BinaryTranslator* binTranslator)
+{
+    for (int i = 0; i < binTranslator->funcArraySize; i++)
+    {
+        for (int j = 0; j < binTranslator->funcArray[i].blockArraySize; j ++)
+        {
+            for (int k = 0; k < binTranslator->funcArray[i].blockArray[j].cmdArraySize; k++)
+            {
+                if (binTranslator->funcArray[i].blockArray[j].cmdArray[k].operator1)
+                {
+                    free (binTranslator->funcArray[i].blockArray[j].cmdArray[k].operator1);
+                    binTranslator->funcArray[i].blockArray[j].cmdArray[k].operator1 = NULL;
+                }
+
+                if (binTranslator->funcArray[i].blockArray[j].cmdArray[k].operator2)
+                {
+                    free (binTranslator->funcArray[i].blockArray[j].cmdArray[k].operator2);
+                    binTranslator->funcArray[i].blockArray[j].cmdArray[k].operator2 = NULL;
+                }
+
+                if (binTranslator->funcArray[i].blockArray[j].cmdArray[k].dest)
+                {
+                    free (binTranslator->funcArray[i].blockArray[j].cmdArray[k].dest);
+                    binTranslator->funcArray[i].blockArray[j].cmdArray[k].dest = NULL;
+                }
+            }
+
+        }
+    }
+
+}
+
 

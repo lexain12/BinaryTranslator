@@ -70,6 +70,7 @@ struct Func_bt
     size_t numberOfTempVar;
     size_t blockArraySize;
     size_t blockArrayCapacity;
+    int aliveFlag;
 };
 
 // Elements with nullptr in name are needed in the end of array
@@ -83,6 +84,7 @@ struct BinaryTranslator
     NameTable nameTable;
     unsigned char* x86_array;
     unsigned char x86Mem_array[512];
+    void*    MemDefender[512];
 };
 
 struct x86_cmd
@@ -229,6 +231,7 @@ void firstIteration (BinaryTranslator* binTranslator);
 void dumpBTtable (NameTable nametable);
 void startProg (BinaryTranslator* binTranslator);
 void binTranslatorDtor (BinaryTranslator* binTranslator);
+void IRdtor (BinaryTranslator* binTranslator);
 
 //----------------------------------------------------------------------------
 
