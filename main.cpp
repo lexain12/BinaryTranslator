@@ -1,7 +1,7 @@
-#include "BinaryTranslator.h"
-#include "translator.h"
+#include "./include/BinaryTranslator.h"
+#include "./include/translator.h"
 #include "language/common.h"
-#include "elfFileGen.h"
+#include "./include/elfFileGen.h"
 
 Configuration Config =
 {
@@ -40,6 +40,8 @@ int main (int argc, char* argv[])
     translateIRtoBin(&binTranslator);
 
     makeElfFile(argv[2], &binTranslator);
+
+    binTranslatorDtor(&binTranslator);
     }
 
     return 0;

@@ -1,7 +1,7 @@
 CXX ?= g++
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+SANITIZE = -fsanitize=address,bool,bounds,enum,float-cast-overflow,float-divide-by-zero,integer-divide-by-zero,leak,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,undefined,unreachable,vla-bound,vptr
 # Configure compile flags.
 CXXFLAGS ?= -ggdb3 -std=c++17 -Wall -Wextra -Weffc++ 				   \
 			-Wc++14-compat 				   \
@@ -23,14 +23,9 @@ CXXFLAGS ?= -ggdb3 -std=c++17 -Wall -Wextra -Weffc++ 				   \
 			-fsized-deallocation -fstack-protector -fstrict-overflow 	   \
 			-fno-omit-frame-pointer -fPIE 	   \
 
-all: main.cpp languagePart.o translator
-	$(CXX) $(CXXFLAGS) main.cpp  obj/translator.o obj/elfFileGen.o obj/languagePart.o -o binTranslate
+all: main.cpp ./language/Analyzer/WriteIntoDb.cpp
+	@$(CXX) $(CXXFLAGS) main.cpp ./language/Analyzer/WriteIntoDb.cpp ./language/Analyzer/utils.cpp ./language/utils/src/ErrorHandlerLib.cpp ./language/utils/src/consoleColorLib.cpp ./language/Analyzer/tokenizer.cpp ./src/BinaryTranslator.cpp ./src/translator.cpp ./language/readerLib/functions.cpp ./language/logs/LogLib.cpp ./src/elfFileGen.cpp -o binTranslate
 
-languagePart.o: ./language/Analyzer/WriteIntoDb.cpp ./language/Analyzer/utils.cpp ./language/utils/src/ErrorHandlerLib.cpp ./language/utils/src/consoleColorLib.cpp ./language/Analyzer/tokenizer.cpp ./language/readerLib/functions.cpp ./language/logs/LogLib.cpp
-	$(CXX) $(CXXFLAGS) ./language/Analyzer/WriteIntoDb.cpp ./language/Analyzer/utils.cpp ./language/utils/src/ErrorHandlerLib.cpp ./language/utils/src/consoleColorLib.cpp ./language/Analyzer/tokenizer.cpp ./language/readerLib/functions.cpp ./language/logs/LogLib.cpp ./src/BinaryTranslator.cpp -o ./obj/languagePart.o
 
-translator: ./src/translator.cpp
-	$(CXX) $(CXXFLAGS) ./src/translator.cpp -o obj/translator.o
 
-elfFileGen:
-	$(CXX) $(CXXFLAGS) ./src/elfFileGen.cpp -o obj/elfFileGen.o
+

@@ -7,9 +7,9 @@
 #include <cstring>
 #include <sys/types.h>
 
-#include "./language/common.h"
-#include "BinaryTranslator.h"
-#include "translator.h"
+#include "../language/common.h"
+#include "../include/BinaryTranslator.h"
+#include "../include/translator.h"
 
 extern Configuration Config;
 
@@ -629,7 +629,13 @@ void firstIteration (BinaryTranslator* binTranslator)
     }
 
     binTranslator->x86_arraySize = ip;
-    binTranslator->x86_array = (unsigned char*) aligned_alloc(4096, sizeof(char*) * ip);
+
+    if ((sizeof(char) * ip) % 4096 != 0)
+    {
+        size_t sizeOfMem = (sizeof(char) * ip) + (4096 - (sizeof(char) * ip) % 4096);
+        binTranslator->x86_array = (unsigned char*) aligned_alloc(4096, sizeOfMem);
+    }
+
     binTranslator->BT_ip = 0;
     binTranslator->nameTable.data = (Name*) calloc (numberOfBlocks, sizeof(Name));
     assert (binTranslator->nameTable.data != NULL);

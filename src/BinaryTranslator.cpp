@@ -17,6 +17,13 @@ static Op_bt* parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_b
 
 static size_t NumberOfTempVars = 0;
 
+
+void binTranslatorDtor (BinaryTranslator* binTranslator)
+{
+    free (binTranslator->x86_array);
+    free (binTranslator->funcArray);
+    free (binTranslator->globalVars);
+}
 // DUMPS
 //----------------------------------------
 
@@ -501,6 +508,7 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
                return parseCallToIR(node, binTranslator, function);
             }
     }
+    return NULL;
 }
 #undef CMD
 

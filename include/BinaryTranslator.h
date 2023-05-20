@@ -228,6 +228,7 @@ void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator);
 void firstIteration (BinaryTranslator* binTranslator);
 void dumpBTtable (NameTable nametable);
 void startProg (BinaryTranslator* binTranslator);
+void binTranslatorDtor (BinaryTranslator* binTranslator);
 
 //----------------------------------------------------------------------------
 
