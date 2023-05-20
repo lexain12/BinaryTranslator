@@ -1,17 +1,21 @@
 section .text
 
 global _start
-
+;=======================================
+; Entry: rdi - pointer on int
+; Exit:  none, prints int to buffer
+; Uses:  r11 - intermediate buffer for puting int there, r12 - buffer for reversing number there
+;=======================================
 _start:
 	xor rbx, rbx
     xor rcx, rcx
 	mov rax, rdi
 	mov rdi, 10
-	cmp eax, 0
+	cmp eax, 0              ; if negative
 	jge .Loop
 	not eax
 	inc rax
-	mov cl, 0x01
+	mov cl, 0x01            ; flag for negative
 
 .Loop:
 	xor rdx, rdx
@@ -24,12 +28,12 @@ _start:
 
 	cmp cl, 0x01 				; check if number is negative
 	jne .NotNeg
-	mov byte [r11 + rbx], '-'
+	mov byte [r11 + rbx], '-'   ;
 	inc rbx
 
 .NotNeg:
 	mov rdi, r12
-	lea rsi, [r11+ rbx - 1]
+	lea rsi, [r11 + rbx - 1]
 	mov rdx, rbx
 	call MemcpyR
     mov rdi, 1
@@ -39,7 +43,7 @@ _start:
     syscall
     ret
 
-MemcpyR:
+MemcpyR:        ; reverses the number from r11 buff to r12 buff
 
 	push rdi
 .Loop1:
