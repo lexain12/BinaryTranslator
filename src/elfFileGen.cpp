@@ -54,14 +54,14 @@ static void writeELFPheader (FILE* fileptr, size_t sizeOfCode)
 
     fwrite(&textSection, sizeof (textSection), 1, fileptr);
 }
-void giveRights (char* fileName)
+static void giveRights (char* fileName)
 {
     char cmdBuf[30] = "";
     sprintf(cmdBuf, "chmod +x %s", fileName);
     system (cmdBuf);
 }
 
-void linkMyPrintf (FILE* fileptr)
+static void linkMyPrintf (FILE* fileptr)
 {
     FILE* printfPtr = fopen ("./bin/BinPrintf", "rb");
     size_t sizeOfFile = fileSize (printfPtr);
@@ -77,7 +77,7 @@ void linkMyPrintf (FILE* fileptr)
     free (buf);
 }
 
-void linkMyScanf (FILE* fileptr)
+static void linkMyScanf (FILE* fileptr)
 {
     FILE* scanfPtr = fopen ("./bin/BinScanf", "rb");
     size_t sizeOfFile = fileSize (scanfPtr);

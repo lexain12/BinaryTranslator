@@ -1,4 +1,6 @@
-#pragma once
+#ifndef TRANSLATOR
+#define TRANSLATOR
+
 #include "./BinaryTranslator.h"
 
 #define Dumpx86Buf(binTranslator, start, end) \
@@ -9,6 +11,6 @@
 
 #define BYTE(offset) offset * 8
 
-void dumpIRToAsm (const char* fileName, BinaryTranslator* binTranslator);
-void firstIteration (BinaryTranslator* binTranslator);
+void dumpx86Buf (BinaryTranslator* binTranslator, size_t start, size_t end);
 
+#endif

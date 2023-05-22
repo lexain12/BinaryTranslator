@@ -9,7 +9,7 @@ Configuration Config =
     .sizeOfPrintf   = 127 + 5*2,
 };
 
-void translateIRtoBin (BinaryTranslator* binTranslator)
+static void translateIRtoBin (BinaryTranslator* binTranslator)
 {
     firstIteration (binTranslator);
     dumpIRToAsm("asm.txt", binTranslator);
@@ -20,7 +20,7 @@ void translateIRtoBin (BinaryTranslator* binTranslator)
     dumpIRToAsm ("asm.txt", binTranslator);
 }
 
-void printHelp ()
+static void printHelp ()
 {
     printf ("Programm usage: ./<programm name> <fileWithTree> <outFileName>\n");
 }

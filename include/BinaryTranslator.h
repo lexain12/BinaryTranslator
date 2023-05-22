@@ -1,4 +1,6 @@
-#pragma once
+#ifndef BINARYTRANSLATOR
+#define BINARYTRANSLATOR
+
 #include <cstddef>
 #include <stdio.h>
 #include <cstdint>
@@ -232,7 +234,7 @@ void dumpBTtable (NameTable nametable);
 void startProg (BinaryTranslator* binTranslator);
 void binTranslatorDtor (BinaryTranslator* binTranslator);
 void IRdtor (BinaryTranslator* binTranslator);
-void NodeDtor(Node* node);
 
 //----------------------------------------------------------------------------
 
+#endif
