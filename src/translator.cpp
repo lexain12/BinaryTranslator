@@ -187,6 +187,9 @@ static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTransl
                         case RBX:
                             SimpleCMD(MOV_RCX_RBX);
                             break;
+
+                        default:
+                            assert(0);
                     }
                     break;
 
@@ -199,6 +202,9 @@ static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTransl
                     fprintf (fileptr, "pop %s\n", regArr[reg]);
                     write_pop_reg (binTranslator, reg);
                     break;
+
+                default:
+                    assert (0);
             }
             break;
 
@@ -206,6 +212,9 @@ static inline void dumpOperatorToAsm (FILE* fileptr, BinaryTranslator* binTransl
             fprintf (fileptr, "mov %s, %d\n", regArr[reg], op->value.num);
             write_mov_reg_num(binTranslator, reg, op->value.num);
             break;
+
+        default:
+            assert (0);
     }
 }
 

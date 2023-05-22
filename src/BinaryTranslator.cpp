@@ -14,15 +14,18 @@ extern const char* FullOpArray[];
 
 static void parseStToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function);
 static Op_bt* parseCallToIR (Node* node, BinaryTranslator* binTranslator, Func_bt* function);
+void NodeDtor(Node* node);
 
 static size_t NumberOfTempVars = 0;
 
 
 void binTranslatorDtor (BinaryTranslator* binTranslator)
 {
+    NodeDtor(binTranslator->tree);
     free (binTranslator->x86_array);
     free (binTranslator->funcArray);
     free (binTranslator->globalVars);
+    free (binTranslator->nameTable.data);
 }
 // DUMPS
 //----------------------------------------
@@ -44,6 +47,9 @@ static void printOperand (FILE* fileptr, const Op_bt* op)
         case Pointer_t:
             fprintf(fileptr, "%-10s", op->value.block->name);
             break;
+
+        default:
+            assert (0);
     }
 }
 
@@ -507,6 +513,9 @@ static Op_bt* parseExpToIR (Node* node, BinaryTranslator* binTranslator, Func_bt
                 fprintf (stderr, "I was here\n");
                return parseCallToIR(node, binTranslator, function);
             }
+
+        default:
+            assert (0);
     }
     return NULL;
 }
@@ -586,6 +595,10 @@ static void parseCallParam (Node* node, BinaryTranslator* binTranslator, Func_bt
             case OP_t:
                 addCmd(&function->blockArray[function->blockArraySize - 1], {.operation = OP_PARIN}, parseExpToIR(node->left, binTranslator, function), NULL, NULL);
                 break;
+
+            default:
+                assert (0);
+
         }
     }
 
@@ -737,6 +750,7 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
     Node* tree = getTreeFromStandart(fileName);
 
     treeDump(tree, "HEYY\n");
+    binTranslator->tree = tree;
 
     binTranslator->funcArray = (Func_bt*) calloc (countNumberOfFunc(tree, 0) + 1, sizeof (Func_bt));
 
@@ -748,7 +762,13 @@ void parseTreeToIR (const char* fileName, BinaryTranslator* binTranslator)
 
 void varArrayDtor (Func_bt* function)
 {
-    free(function->varArray);
+    for (int i = 0; i < function->varArraySize; i++)
+    {
+        if (function->varArray[i].location == Stack)
+            free (function->varArray[i].name);
+    }
+
+    free (function->varArray);
 }
 
 void IRdtor (BinaryTranslator* binTranslator)
@@ -758,7 +778,6 @@ void IRdtor (BinaryTranslator* binTranslator)
 
         for (int j = 0; j < binTranslator->funcArray[i].blockArraySize; j ++)
         {
-
             for (int k = 0; k < binTranslator->funcArray[i].blockArray[j].cmdArraySize; k++)
             {
                 if (binTranslator->funcArray[i].blockArray[j].cmdArray[k].operator1)
@@ -775,8 +794,7 @@ void IRdtor (BinaryTranslator* binTranslator)
 
                 if (binTranslator->funcArray[i].blockArray[j].cmdArray[k].dest)
                 {
-                    if (binTranslator->funcArray[i].blockArray[j].cmdArray[k].dest->type == Num_t)
-                        free (binTranslator->funcArray[i].blockArray[j].cmdArray[k].dest);
+                    free (binTranslator->funcArray[i].blockArray[j].cmdArray[k].dest);
                 }
 
             }
@@ -789,5 +807,23 @@ void IRdtor (BinaryTranslator* binTranslator)
         varArrayDtor(&binTranslator->funcArray[i]);
     }
 
+}
+
+void NodeDtor(Node* node)
+{
+    if (node->left)
+        NodeDtor(node->left);
+
+    if (node->right)
+        NodeDtor(node->right);
+
+    if (node->Name)
+    {
+        free (node->Name);
+        node->Name = NULL;
+    }
+
+
+    free(node);
 }
 

@@ -84,7 +84,7 @@ struct BinaryTranslator
     NameTable nameTable;
     unsigned char* x86_array;
     unsigned char x86Mem_array[512];
-    void*    MemDefender[512];
+    Node* tree;
 };
 
 struct x86_cmd
@@ -232,6 +232,7 @@ void dumpBTtable (NameTable nametable);
 void startProg (BinaryTranslator* binTranslator);
 void binTranslatorDtor (BinaryTranslator* binTranslator);
 void IRdtor (BinaryTranslator* binTranslator);
+void NodeDtor(Node* node);
 
 //----------------------------------------------------------------------------
 
