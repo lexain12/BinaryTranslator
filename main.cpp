@@ -42,6 +42,7 @@ int main (int argc, char* argv[])
     makeElfFile(argv[2], &binTranslator);
 
     IRdtor(&binTranslator);
+    binTranslatorDtor(&binTranslator);
     }
 
     return 0;
