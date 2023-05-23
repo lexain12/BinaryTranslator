@@ -18,15 +18,15 @@
 static void writeELFHeader (FILE* fileptr)
 {
     ElfW(Ehdr) header = {};
-    header.e_ident[EI_MAG0]  = 0x7f;
-    header.e_ident[EI_MAG1]  = 'E';
-    header.e_ident[EI_MAG2]  = 'L';
-    header.e_ident[EI_MAG3]  = 'F';
+    header.e_ident[EI_MAG0]  = ELFMAG0;
+    header.e_ident[EI_MAG1]  = ELFMAG1;
+    header.e_ident[EI_MAG2]  = ELFMAG2;
+    header.e_ident[EI_MAG3]  = ELFMAG3;
     header.e_ident[EI_CLASS] = ELFCLASS64;
     header.e_ident[EI_DATA]  = ELFDATA2LSB;
-    header.e_ident[EI_OSABI] = 0x00;
-    header.e_ident[EI_VERSION] = 0x01;
-    header.e_version           = 0x01;
+    header.e_ident[EI_OSABI] = ELFOSABI_NONE;
+    header.e_ident[EI_VERSION] = EV_CURRENT;
+    header.e_version           = EV_CURRENT;
     header.e_type            = ET_EXEC;
     header.e_machine         = 0x3E;
     header.e_entry           = 0x400078;
